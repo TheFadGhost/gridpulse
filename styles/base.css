@@ -1,0 +1,123 @@
+/* Gridpulse base: reset, document defaults, typography primitives,
+   focus/selection, reduced-motion, scrollbars. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background-color: var(--bg-app);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Typography primitives (DESIGN.md scale — nothing larger than the title) */
+
+.gp-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-dim);
+}
+
+.gp-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-value);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.gp-title {
+  font-family: var(--font-ui);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--fg);
+}
+
+/* Focus: visible ring, offset outside the element edge. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* Selection in accent so it reads as instrument state, not browser chrome. */
+::selection {
+  background-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Reduced motion: kill movement globally; opacity is exempt so fades remain.
+   Transitions are restricted to opacity (durations preserved), keyframe
+   animations are disabled outright. The playhead swap lives in grid.css. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-property: opacity !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Subtle scrollbars that match panel surfaces. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--line);
+  border-radius: var(--radius-2);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--fg-dim);
+}

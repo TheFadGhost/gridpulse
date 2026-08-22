@@ -1,0 +1,313 @@
+/* Gridpulse step grid.
+   Step-state language per DESIGN.md; every state is a composable overlay so
+   all states stay simultaneously readable.
+
+   Cell DOM contract (UI JS must match):
+     <div class="gp-cell" role="button" tabindex="-1"
+          data-on="1"            fill present; JS sets --cell-fill for velocity
+          data-accent="1"        velocity >= 0.75
+          data-lowprob="1"       probability < 1
+          data-ratchet           repeats > 1; count class .r2 ... .r8 (see below)
+          data-nudge-dir="-1|1"  nudged early/late
+          class += .is-playing   playhead on this cell
+          class += .is-selected  copy range / focused cell
+          class += .gp-col-active playing column wash (every cell in column)
+          class += .gp-beat-start / .gp-bar-start>
+
+   Per row: <div class="gp-row" data-track="1..8"> sets --track-c; JS may set
+   --cell-fill inline per active cell as a color-mix of --track-c for velocity.
+
+   Implementation choices:
+   - Ratchet ticks are layered linear-gradients on the cell's own background
+     (right edge), driven by count classes .r2..r8 where N = total repeats and
+     the tick count shown is N-1 capped at 7. Chosen over a repeating gradient
+     because the exact tick count must be readable at a glance.
+   - The nudge triangle is a conic-gradient background layer (both pseudo
+     elements are reserved: ::before = low-prob hatch, ::after = accent bar),
+     drawn in the top-left corner pointing left (-1) or right (+1).
+   - Beat/bar rules are box-shadow stripes cast into the widened gap before
+     .gp-beat-start/.gp-bar-start cells (see note at those rules).
+   - Cells toggle instantly: no transition or animation property on any cell state.
+*/
+
+.gp-grid {
+  position: relative;
+  display: grid;
+  align-content: start;
+  row-gap: var(--gap-row);
+  overflow-x: auto;
+}
+
+.gp-row {
+  display: flex;
+  align-items: center;
+  column-gap: var(--gap-cell);
+  height: var(--cell-size);
+}
+
+.gp-trackhead {
+  flex: none;
+  width: var(--trackhead-w);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.gp-row[data-track="1"] { --track-c: var(--track-1); }
+.gp-row[data-track="2"] { --track-c: var(--track-2); }
+.gp-row[data-track="3"] { --track-c: var(--track-3); }
+.gp-row[data-track="4"] { --track-c: var(--track-4); }
+.gp-row[data-track="5"] { --track-c: var(--track-5); }
+.gp-row[data-track="6"] { --track-c: var(--track-6); }
+.gp-row[data-track="7"] { --track-c: var(--track-7); }
+.gp-row[data-track="8"] { --track-c: var(--track-8); }
+
+.gp-cell {
+  --nudge-layer: linear-gradient(#0000, #0000);
+
+  position: relative;
+  flex: none;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  border-radius: var(--radius-1);
+  border: 1px solid var(--cell-off-border);
+  background-color: transparent;
+}
+
+@media (pointer: coarse) {
+  .gp-row {
+    height: var(--cell-size-coarse);
+  }
+
+  .gp-cell {
+    width: var(--cell-size-coarse);
+    height: var(--cell-size-coarse);
+  }
+}
+
+/* Playing column underlay. Declared before [data-on] so filled cells keep
+   their track colour; hollow cells carry the wash. */
+.gp-col-active {
+  background-color: var(--col-active);
+}
+
+/* On: velocity-mapped fill; --cell-fill is set inline by JS (color-mix of
+   --track-c). Border yields to the fill. */
+.gp-cell[data-on="1"] {
+  background-color: var(--cell-fill, var(--track-c));
+  border-color: transparent;
+}
+
+/* Accent: 2px inner top highlight bar in near-white over the fill. */
+.gp-cell[data-accent="1"][data-on="1"]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px 1px 0 0;
+  background-color: rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+}
+
+/* Low probability: dashed border + diagonal hatch overlay, fg at 35% alpha,
+   readable on top of any fill (::after accent bar paints above it). */
+.gp-cell[data-lowprob="1"] {
+  border-style: dashed;
+  border-color: var(--cell-off-border);
+}
+
+.gp-cell[data-lowprob="1"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(128, 128, 128, 0.35) 0,
+    rgba(128, 128, 128, 0.35) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--fg) 35%, transparent) 0,
+    color-mix(in srgb, var(--fg) 35%, transparent) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  pointer-events: none;
+}
+
+/* Nudge direction layers (consumed by the ratchet rules below so ratchet +
+   nudge compose in one background stack). */
+.gp-cell[data-nudge-dir="-1"] {
+  --nudge-layer: conic-gradient(
+    from 45deg at 0% 50%,
+    rgba(255, 255, 255, 0.92) 0deg 90deg,
+    #0000 90deg
+  );
+}
+
+.gp-cell[data-nudge-dir="1"] {
+  --nudge-layer: conic-gradient(
+    from 225deg at 100% 50%,
+    rgba(255, 255, 255, 0.92) 0deg 90deg,
+    #0000 90deg
+  );
+}
+
+/* Ratcheted: right-edge ticks, one 8x2px tick per extra repeat, max 7.
+   Class N (.r2..r8) = total repeats; ticks shown = N-1, evenly distributed.
+   Layer order: nudge triangle above ticks; hatch ::before paints above both;
+   accent bar ::after above that. */
+[data-ratchet].r2 {
+  background-image: var(--nudge-layer),
+    linear-gradient(var(--fg), var(--fg));
+  background-repeat: no-repeat, no-repeat;
+  background-size: 8px 8px, 8px 2px;
+  background-position: left 2px top 2px, right 2px center;
+}
+
+[data-ratchet].r3 {
+  background-image: var(--nudge-layer),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg));
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-size: 8px 8px, 8px 2px, 8px 2px;
+  background-position: left 2px top 2px, right 2px top 0%, right 2px bottom 0%;
+}
+
+[data-ratchet].r4 {
+  background-image: var(--nudge-layer),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg));
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 8px 8px, 8px 2px, 8px 2px, 8px 2px;
+  background-position: left 2px top 2px, right 2px top 0%, right 2px center,
+    right 2px bottom 0%;
+}
+
+[data-ratchet].r5 {
+  background-image: var(--nudge-layer),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg));
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 8px 8px, 8px 2px, 8px 2px, 8px 2px, 8px 2px;
+  background-position: left 2px top 2px, right 2px top 0%, right 2px 33.33%,
+    right 2px 66.67%, right 2px bottom 0%;
+}
+
+[data-ratchet].r6 {
+  background-image: var(--nudge-layer),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg));
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+    no-repeat;
+  background-size: 8px 8px, 8px 2px, 8px 2px, 8px 2px, 8px 2px, 8px 2px;
+  background-position: left 2px top 2px, right 2px top 0%, right 2px 25%,
+    right 2px center, right 2px 75%, right 2px bottom 0%;
+}
+
+[data-ratchet].r7 {
+  background-image: var(--nudge-layer),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg));
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+    no-repeat, no-repeat;
+  background-size: 8px 8px, 8px 2px, 8px 2px, 8px 2px, 8px 2px, 8px 2px, 8px 2px;
+  background-position: left 2px top 2px, right 2px top 0%, right 2px 20%,
+    right 2px 40%, right 2px 60%, right 2px 80%, right 2px bottom 0%;
+}
+
+[data-ratchet].r8 {
+  background-image: var(--nudge-layer),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg)),
+    linear-gradient(var(--fg), var(--fg));
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+    no-repeat, no-repeat, no-repeat;
+  background-size: 8px 8px, 8px 2px, 8px 2px, 8px 2px, 8px 2px, 8px 2px, 8px 2px,
+    8px 2px;
+  background-position: left 2px top 2px, right 2px top 0%, right 2px 16.67%,
+    right 2px 33.33%, right 2px center, right 2px 66.67%, right 2px 83.33%,
+    right 2px bottom 0%;
+}
+
+/* Currently playing: exact cell gets a 1.5px outline in --fg. No scale,
+   bounce, or transition — the outline appears and disappears instantly. */
+.gp-cell.is-playing {
+  outline: 1.5px solid var(--fg);
+  outline-offset: 0;
+}
+
+/* Selected (copy range / focused cell): inset 1px outline offset -2px.
+   Declared after .is-playing so selection wins if both apply. */
+.gp-cell.is-selected {
+  outline: 1px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Beat/bar grouping. Base 3px gap comes from .gp-row column-gap; these add
+   DESIGN.md's extra indents. The "column rule behind the beat" is cast as a
+   full-height box-shadow stripe into the widened gap (--line for beats,
+   brighter --fg-dim for bars). It renders per row segment rather than one
+   continuous line across rows — flat cell DOM has no free pseudo-element to
+   span the grid; visually the grouping still reads without counting cells. */
+.gp-beat-start {
+  margin-left: var(--beat-indent);
+  box-shadow: -3px 0 0 0 var(--line);
+}
+
+.gp-bar-start {
+  margin-left: var(--bar-indent);
+  box-shadow: -4px 0 0 0 var(--fg-dim);
+}
+
+@media (pointer: coarse) {
+  .gp-beat-start {
+    margin-left: calc(var(--beat-indent) * 40 / 28);
+    box-shadow: -4px 0 0 0 var(--line);
+  }
+
+  .gp-bar-start {
+    margin-left: calc(var(--bar-indent) * 40 / 28);
+    box-shadow: -6px 0 0 0 var(--fg-dim);
+  }
+}
+
+/* Playhead: continuous 2px vertical line spanning all rows, moved via
+   transform only (compositor-only updates from audio-clock mapping).
+   Reduced motion swaps to the discrete column highlight (.gp-col-active). */
+.gp-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  z-index: var(--z-playhead);
+  background-color: var(--accent);
+  pointer-events: none;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gp-playhead {
+    display: none;
+  }
+}

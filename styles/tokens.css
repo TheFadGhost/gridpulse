@@ -1,0 +1,127 @@
+/* Gridpulse design tokens.
+   Roles and palette verbatim from DESIGN.md. Themes override tokens only;
+   scales/z-index are theme-invariant and defined once below. */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-app: #141414;
+  --bg-panel: #1D1D1B;
+  --bg-sunken: #161615;
+  --fg: #E9E6DD;
+  --fg-dim: #9A968B;
+  --line: #33322E;
+  --accent: #FFB347;
+  --accent-fg: #141414;
+  --col-active: rgba(255, 179, 71, 0.10);
+  --cell-off-border: #35342F;
+  --focus-ring: #FFD98A;
+  --danger: #FF6B57;
+  --ok: #6FD08C;
+
+  --track-1: #FFB347;
+  --track-2: #5CA8FF;
+  --track-3: #FF6FA5;
+  --track-4: #3FBFB4;
+  --track-5: #E3D44C;
+  --track-6: #B48CFF;
+  --track-7: #EDE3C8;
+  --track-8: #8FD8E8;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-app: #ECEAE4;
+  --bg-panel: #F7F5EF;
+  --bg-sunken: #E2DFD7;
+  --fg: #1C1B18;
+  --fg-dim: #6A665C;
+  --line: #C9C4B8;
+  --accent: #B25E00;
+  --accent-fg: #FFFFFF;
+  --col-active: rgba(178, 94, 0, 0.08);
+  --cell-off-border: #CFC9BC;
+  --focus-ring: #7A3D00;
+  --danger: #B32300;
+  --ok: #1B7A38;
+
+  --track-1: #A85C00;
+  --track-2: #1D5FBF;
+  --track-3: #B02E62;
+  --track-4: #0E7A72;
+  --track-5: #8A7D00;
+  --track-6: #6640C7;
+  --track-7: #7A6F52;
+  --track-8: #23707F;
+}
+
+[data-theme="contrast"] {
+  color-scheme: dark;
+
+  --bg-app: #000000;
+  --bg-panel: #0A0A0A;
+  --bg-sunken: #000000;
+  --fg: #FFFFFF;
+  --fg-dim: #C8C8C8;
+  --line: #585858;
+  --accent: #FFD24D;
+  --accent-fg: #000000;
+  --col-active: rgba(255, 210, 77, 0.14);
+  --cell-off-border: #4A4A4A;
+  --focus-ring: #FFE9A8;
+  --danger: #FF8A78;
+  --ok: #8CF0A8;
+
+  --track-1: #FFD24D;
+  --track-2: #6FB5FF;
+  --track-3: #FF8FBB;
+  --track-4: #63DED4;
+  --track-5: #F2E668;
+  --track-6: #CBA8FF;
+  --track-7: #FFF3D6;
+  --track-8: #AEE6F2;
+}
+
+:root {
+  /* Spacing base 4px */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* Radii: crisp, not pillowy */
+  --radius-1: 2px;
+  --radius-2: 3px;
+
+  /* Type */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+  --fs-label: 11px;
+  --fs-body: 13px;
+  --fs-value: 15px;
+  --fs-title: 20px;
+
+  /* Motion */
+  --dur-fast: 120ms;
+  --dur-med: 180ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Grid geometry */
+  --cell-size: 28px;
+  --cell-size-coarse: 40px;
+  --gap-cell: 3px;
+  --gap-row: 6px;
+  --beat-indent: 6px;
+  --bar-indent: 10px;
+  --trackhead-w: 56px;
+
+  /* Z-index layers */
+  --z-playhead: 20;
+  --z-overlay: 40;
+  --z-banner: 45;
+  --z-toast: 50;
+}
