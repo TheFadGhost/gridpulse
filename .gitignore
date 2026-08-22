@@ -1,0 +1,24 @@
+# Build output
+dist/
+build/
+
+# Local scratch
+.tmp/
+*.local
+
+# Local audio files (user samples are never committed)
+samples/
+*.wav
+*.aif
+*.aiff
+*.flac
+*.mp3
+*.ogg
+!tests/fixtures/*.wav
+
+# OS junk
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log

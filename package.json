@@ -1,0 +1,12 @@
+{
+  "name": "gridpulse",
+  "version": "0.1.0",
+  "description": "Browser step sequencer on the Web Audio API: synthesized drums, a synth voice, sampler tracks, per-step probability/velocity/ratchet/nudge, song chaining, MIDI, and offline WAV render.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/"
+  },
+  "license": "MIT",
+  "private": true
+}
