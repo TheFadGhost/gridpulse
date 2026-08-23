@@ -29,7 +29,7 @@ The transport keeps an append-only list of anchors: `anchors = [{beat: b_i, time
   ```
 - Ratchets subdivide the remaining step duration into `ratchet` equal repeats starting at the step time.
 - Probability resolves once per `(cycleCount, stepIndex)` using a seeded RNG (mulberry32, seed = project seed ⊕ hash(patternId, cycle)). Determinism: same seed + same project ⇒ identical event stream (tested over simulated hours).
-- Per-track pattern lengths: each track loops over its own length; global cycle length = LCM of active track lengths. Events carry their own pattern/track context.
+- Per-track pattern lengths: each track loops over its own length; global cycle length = LCM of active track lengths. Events carry their own pattern/track context. A live performance layer may attach `repeatOverride: {step, velocity?, ratchet?}` to a view track; when present it forces that step on (probability 1) with the given ratchet — this is how the step-repeat control retriggers cells without leaving the scheduler.
 - Tempo changes requested mid-playback take effect at the next unmaterialized boundary — no dropped or duplicated events (tested).
 - Stop flushes nothing already scheduled (≤180 ms tail is musically correct); Start schedules from `now + 0.06`.
 

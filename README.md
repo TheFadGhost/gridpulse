@@ -76,7 +76,7 @@ Measured claims (method: offline render onset detection vs scheduled times, and 
 
 ## Keyboard reference
 
-Press `?` in the app for the built-in map. Summary: Space play/stop · T tap · M metronome · G focus grid · P focus piano roll · arrows navigate · Space/Enter toggle step · `[ ]` nudge · `{ }` probability · r ratchet · c/v copy/paste · Shift+click velocity · Alt+click probability · Ctrl+click ratchet · Ctrl+Z/Y undo/redo.
+Press `?` in the app for the built-in map. Summary: Space play/stop · T tap · M metronome · `.` step-repeat performance mode (clicks set live retrigger targets, fed through the scheduler) · G focus grid · P focus piano roll · arrows navigate · Space/Enter toggle step · `[ ]` nudge · `{ }` probability · r ratchet · c/v copy/paste · Shift+click velocity · Alt+click probability · Ctrl+click ratchet · Ctrl+Z/Y undo/redo.
 
 Accessibility: the grid exposes table semantics with per-cell state labels; themes include dark (default), light, high-contrast; `prefers-reduced-motion` replaces the continuous playhead with a discrete step indicator; AA contrast verified per theme in AUDIT.md.
 

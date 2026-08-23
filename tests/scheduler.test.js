@@ -263,3 +263,19 @@ test('song mode cycles patterns per cycle index', () => {
     assert.equal(e.trackId, wantPattern, `step ${e.stepIndex} should hit ${wantPattern}`);
   }
 });
+
+test('repeatOverride forces a step on through the scheduler', () => {
+  const clock = mockClock();
+  const tr = track('a', 16, []);
+  const view = stepView({ tracks: [tr] });
+  view.tracks[0].repeatOverride = { step: 5, velocity: 0.7, ratchet: 4 };
+  const events = [];
+  const sched = new Scheduler({ getNow: clock.getNow, getView: () => view, onEvent: e => events.push(e) });
+  sched.start(clock.now());
+  runFor(sched, clock, 10);
+  const at5 = events.filter(e => e.stepIndex % 16 === 5 && e.trackId === 'a');
+  assert.ok(at5.length >= 12, `expected repeats across cycles, got ${at5.length}`);
+  for (const e of at5) { assert.equal(e.ratchet, 4); assert.ok(Math.abs(e.velocity - 0.7) < 1e-9); }
+  const others = events.filter(e => (e.stepIndex % 16) !== 5);
+  assert.equal(others.length, 0);
+});

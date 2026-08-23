@@ -94,7 +94,11 @@ export class Scheduler {
     for (const tr of v.tracks) {
       const L = Math.max(1, Math.min(tr.length, pattern.length));
       const li = ((s % L) + L) % L;
-      const st = pattern.steps[tr.id] ? pattern.steps[tr.id][li] : null;
+      let st = pattern.steps[tr.id] ? pattern.steps[tr.id][li] : null;
+      const ov = tr.repeatOverride;
+      if (ov && li === ((ov.step % L) + L) % L) {
+        st = { on: true, vel: ov.velocity != null ? ov.velocity : 0.9, prob: 1, ratchet: ov.ratchet || 4, nudge: 0, note: null };
+      }
       if (!st || !st.on) continue;
       const swing = swingDelaySeconds(s, bpmNow, v.swing);
       const base = t0 + swing + (st.nudge || 0) / 1000;

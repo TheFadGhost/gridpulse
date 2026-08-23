@@ -37,7 +37,14 @@ function stepsPerBeatOf(den) { return Math.max(1, Math.round(16 / den)); }
 function beatsPerBarOf(num, den) { return num * den / 4; }
 
 function schedulerView() {
-  return buildSchedulerView(store.getProject(), store.selectedPatternId);
+  const v = buildSchedulerView(store.getProject(), store.selectedPatternId);
+  if (stepRepeat.enabled) {
+    for (const t of v.tracks) {
+      const ov = stepRepeat.overrides.get(t.id);
+      if (ov) t.repeatOverride = ov;
+    }
+  }
+  return v;
 }
 
 
@@ -68,6 +75,7 @@ let embedSamplesOnSave = false;
 let seedCounter = store.getProject().seed;
 let tapTimes = [];
 let headroom = { ema: 0, max: 0 };
+const stepRepeat = { enabled: false, overrides: new Map() };
 let ui = {};
 
 function toast(msg, kind = 'ok') {
@@ -457,7 +465,7 @@ window.addEventListener('beforeunload', () => { if (meterTimer) clearInterval(me
 
 function mountComponents() {
   ui.grid = createStepGrid($('grid'), {
-    onToggle: (tid, i) => { store.toggleStep(tid, i); },
+    onToggle: (tid, i) => { store.toggleStep(tid, i); setStepRepeatFromSelection(tid, i); },
     onStepParam: (tid, i, param, val) => {
       if (param === 'nudge') store.setStepParam(tid, i, 'nudge', val);
       else store.setStepParam(tid, i, param, { value: val });
@@ -595,8 +603,28 @@ function setBpm(v) {
   if (midi && sendClockEnabled && midi.setSenderBpm) midi.setSenderBpm(bpm);
 }
 
-function tapTempo() {
-  const now = performance.now();
+function setStepRepeatFromSelection(tid, stepIndex) {
+  if (!stepRepeat.enabled) return;
+  const t = store.getProject().tracks.find(x => x.id === tid);
+  if (!t) return;
+  const len = Math.min(t.length, currentPattern().length);
+  const s = ((stepIndex % len) + len) % len;
+  stepRepeat.overrides.set(tid, { step: s });
+  announce(`step repeat target: ${t.name} step ${s + 1}`);
+}
+
+function toggleStepRepeat() {
+  stepRepeat.enabled = !stepRepeat.enabled;
+  if (!stepRepeat.enabled) {
+    stepRepeat.overrides.clear();
+    announce('step repeat off');
+  } else {
+    announce('step repeat on - click cells to set repeat targets');
+  }
+  updateStatus();
+}
+
+function tapTempo() {  const now = performance.now();
   tapTimes = tapTimes.filter(t => now - t < 2500);
   tapTimes.push(now);
   ui.transport.setTapPulse();
@@ -677,8 +705,8 @@ function updateStatus() {
   bar.querySelector('.st-state').textContent = stateText;
   bar.querySelector('.st-midi').textContent = midiStatusText;
   bar.querySelector('.st-hint').textContent = playing
-    ? `${store.getProject().bpm} bpm - space stops`
-    : 'space plays - click cells to program - ? for keys';
+    ? `${store.getProject().bpm} bpm${stepRepeat.enabled ? ' - STEP REPEAT' : ''} - space stops`
+    : `space plays - click cells to program${stepRepeat.enabled ? ' - STEP REPEAT: click sets repeat target' : ''} - ? for keys`;
   ui.transport && ui.transport.setBlocked(blocked);
 }
 
@@ -955,6 +983,7 @@ function wireGlobalKeys() {
       case ' ': e.preventDefault(); playing ? stop() : play(); break;
       case 't': case 'T': tapTempo(); break;
       case 'm': case 'M': { const m = store.getProject().metronome; store.setTransport({ metronome: { ...m, enabled: !m.enabled } }); announce(`metronome ${m.enabled ? 'off' : 'on'}`); break; }
+      case '.': toggleStepRepeat(); break;
       case 'g': case 'G': ui.grid.focusCell(selectedTrackId, 0); break;
       case 'p': case 'P': { const t = store.getProject().tracks.find(x => x.id === selectedTrackId); if (t && t.type !== 'drum') $('pianoroll').focus(); break; }
     }
