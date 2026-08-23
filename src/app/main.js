@@ -462,7 +462,7 @@ function startMeterLoop() {
     }
     try {
       const m = engine.masterMeter();
-      ui.meterMaster && ui.meterMaster(m);
+      void m;
     } catch {}
     const frac = Math.min(1, headroom.max / 30);
     const fill = $('headroom-fill');
@@ -532,6 +532,11 @@ function applyParamPath(tid, path, value) {
   const p = store.getProject();
   const t = p.tracks.find(x => x.id === tid);
   if (!t) return;
+  if (path === 'track.length') {
+    store.setTrackLength(tid, value);
+    syncLengths();
+    return;
+  }
   if (path.startsWith('params.')) {
     const k = path.slice(7);
     if (k === 'reverse') store.setTrackParams(tid, { reverse: !!value });
@@ -593,7 +598,18 @@ function selectTrack(tid) {
 function refreshRoll() {
   const p = store.getProject();
   const t = p.tracks.find(x => x.id === selectedTrackId);
-  if (!t || t.type === 'drum') { $('roll-track').textContent = '- select a melodic track'; ui.roll.render(p, currentPattern().id, null, key, scaleName); return; }
+  const host = $('pianoroll');
+  if (!t || t.type === 'drum') {
+    $('roll-track').textContent = '- select a melodic track';
+    ui.roll.dispose();
+    host.innerHTML = '<p class="gp-label" style="color:var(--fg-dim)">Select a synth or sampler track to edit notes.</p>';
+    ui.roll = createPianoRoll(host, {
+      onSetNote: (tid, i, midiNote) => { store.setNote(tid, i, midiNote); },
+      onSelect: () => {},
+      onAnnounce: announce
+    });
+    return;
+  }
   $('roll-track').textContent = `- ${t.name} (${NOTE_NAMES[key]} ${scaleName})`;
   ui.roll.render(p, currentPattern().id, t.id, key, scaleName);
 }

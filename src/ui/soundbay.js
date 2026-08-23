@@ -376,6 +376,38 @@ export function createSoundBay(container, handlers) {
 
     const voicePanel = addPanel();
     const grid = addGrid(voicePanel);
+
+    const lenRow = addRow(voicePanel);
+    const lenLabel = document.createElement('span');
+    lenLabel.className = 'gp-label';
+    lenLabel.textContent = 'LENGTH';
+    const lenMinus = document.createElement('button');
+    lenMinus.type = 'button';
+    lenMinus.className = 'gp-mini';
+    lenMinus.textContent = '-';
+    lenMinus.setAttribute('aria-label', `Decrease ${track.name} pattern length`);
+    const lenVal = document.createElement('span');
+    lenVal.className = 'gp-value';
+    lenVal.textContent = `${track.length} steps`;
+    lenVal.id = 'sb-len-val';
+    lenMinus.setAttribute('aria-controls', 'sb-len-val');
+    const lenPlus = document.createElement('button');
+    lenPlus.type = 'button';
+    lenPlus.className = 'gp-mini';
+    lenPlus.textContent = '+';
+    lenPlus.setAttribute('aria-label', `Increase ${track.name} pattern length`);
+    lenPlus.setAttribute('aria-controls', 'sb-len-val');
+    const clampLen = (v) => Math.max(1, Math.min(64, v | 0));
+    lenMinus.addEventListener('click', () => {
+      const next = clampLen(track.length - 1);
+      if (next !== track.length) { lenVal.textContent = `${next} steps`; emit('track.length', next); }
+    });
+    lenPlus.addEventListener('click', () => {
+      const next = clampLen(track.length + 1);
+      if (next !== track.length) { lenVal.textContent = `${next} steps`; emit('track.length', next); }
+    });
+    lenRow.append(lenLabel, lenMinus, lenVal, lenPlus);
+
     if (track.type === 'drum') {
       renderDrum(grid, track.params || {});
     } else if (track.type === 'synth') {

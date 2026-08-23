@@ -240,3 +240,26 @@ test('full default project: every event matches closed-form time incl ratchets',
   assert.equal(bad, 0, `${bad} events off closed-form`);
   assert.ok(events.length > 800, `expected >800 events over 120s, got ${events.length}`);
 });
+
+test('song mode cycles patterns per cycle index', () => {
+  const clock = mockClock();
+  const mk = (id) => track(id, 4, [0]);
+  const a = mk('a'); const b = mk('b');
+  const patterns = {
+    pa: { id: 'pa', length: 4, steps: { a: a.steps } },
+    pb: { id: 'pb', length: 4, steps: { b: b.steps } }
+  };
+  const view = {
+    tracks: [a, b], patterns, patternId: 'pa', chain: ['pa', 'pb'], songMode: true,
+    seed: 7, swing: 0, bpm: 120, metronome: null, stepsPerBeat: 4, beatsPerBar: 4
+  };
+  const events = [];
+  const sched = new Scheduler({ getNow: clock.getNow, getView: () => view, onEvent: e => events.push(e) });
+  sched.start(clock.now());
+  runFor(sched, clock, 30);
+  for (const e of events) {
+    const cycle = Math.floor(e.stepIndex / 4);
+    const wantPattern = cycle % 2 === 0 ? 'a' : 'b';
+    assert.equal(e.trackId, wantPattern, `step ${e.stepIndex} should hit ${wantPattern}`);
+  }
+});
