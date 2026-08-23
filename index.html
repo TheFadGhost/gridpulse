@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gridpulse</title>
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/grid.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+<div class="gp-app">
+  <header id="transport-bar" class="gp-panel"></header>
+  <main>
+    <section id="grid-panel" aria-label="Step grid">
+      <div id="pattern-tabs" role="tablist" aria-label="Patterns"></div>
+      <div id="grid"></div>
+    </section>
+    <aside id="sound-bay" aria-label="Sound and effects"></aside>
+  </main>
+  <section id="roll-panel" aria-label="Piano roll">
+    <div id="roll-head"></div>
+    <div id="pianoroll"></div>
+  </section>
+  <section id="mixer-panel" aria-label="Mixer"></section>
+  <footer id="status-bar"></footer>
+</div>
+<dialog id="help"></dialog>
+<div class="gp-toast-region" id="toasts"></div>
+<div class="sr-only" aria-live="polite" id="live-region"></div>
+<script>window.__errs=[];function __showErr(){if(document.getElementById('boot-errors'))return;var d=document.createElement('pre');d.id='boot-errors';d.textContent='ERRCOUNT='+window.__errs.length+'\n'+window.__errs.join('\n---\n');document.body.appendChild(d);document.title='BOOTERR';}window.addEventListener('error',function(e){window.__errs.push(String(e.message||e.error)+' :: '+(e.filename||'')+':'+(e.lineno||'')+':'+(e.colno||''));__showErr();},true);window.addEventListener('unhandledrejection',function(e){window.__errs.push('REJECT '+String(e.reason&&e.reason.stack||e.reason));__showErr();});</script>
+<script type="module" src="src/app/main.js"></script>
+</body>
+</html>

@@ -110,6 +110,7 @@ export class Scheduler {
           trackId: tr.id, patternId, stepIndex: s,
           note: (tr.type !== 'drum' && typeof st.note === 'number') ? st.note : null,
           velocity: st.vel, ratchet: reps, nudgeMs: st.nudge || 0,
+          repeat: r,
           time: base + r * (span / reps)
         });
       }

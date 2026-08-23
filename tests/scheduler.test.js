@@ -211,3 +211,32 @@ test('metronome emits per division with bar accents', () => {
   assert.equal(metroEvents[1].note, 0, 'intra-bar unaccented');
 });
 
+
+test('full default project: every event matches closed-form time incl ratchets', async () => {
+  const { defaultProject } = await import('../src/core/model.js');
+  const p = defaultProject();
+  const patterns = {};
+  for (const pat of p.patterns) patterns[pat.id] = { id: pat.id, length: pat.length, steps: pat.steps };
+  const view = {
+    tracks: p.tracks.map(t => ({ id: t.id, type: t.type, length: t.length })),
+    patterns, patternId: p.patterns[0].id, chain: [p.patterns[0].id],
+    songMode: false, seed: p.seed | 0, swing: p.swing, bpm: p.bpm,
+    metronome: p.metronome, stepsPerBeat: 4, beatsPerBar: 4
+  };
+  const clock = mockClock();
+  const events = [];
+  const sched = new Scheduler({ getNow: clock.getNow, getView: () => view, onEvent: e => events.push(e) });
+  sched.start(clock.now());
+  runFor(sched, clock, 120);
+  let bad = 0;
+  for (const e of events) {
+    const base = sched.stepBaseTime(e.stepIndex);
+    const swing = e.stepIndex % 2 === 1 ? view.swing * (60 / view.bpm) / 4 : 0;
+    const span = sched.stepBaseTime(e.stepIndex + 1) - base;
+    const expected = base + swing + (e.nudgeMs || 0) / 1000 + e.repeat * span / Math.max(1, e.ratchet);
+    if (Math.abs(e.time - expected) > 1e-12) bad++;
+    if (!Number.isInteger(e.repeat) || e.repeat < 0 || e.repeat >= e.ratchet) bad++;
+  }
+  assert.equal(bad, 0, `${bad} events off closed-form`);
+  assert.ok(events.length > 800, `expected >800 events over 120s, got ${events.length}`);
+});

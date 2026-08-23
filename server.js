@@ -1,9 +1,10 @@
 // Minimal static file server for local development. No dependencies.
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8787;
 
 const MIME = {
@@ -20,8 +21,29 @@ const MIME = {
 };
 
 const server = http.createServer(async (req, res) => {
+  req.setTimeout(10000, () => req.destroy());
+  res.setTimeout(10000, () => res.destroy());
   try {
     const url = new URL(req.url, `http://localhost:${PORT}`);
+    if (url.pathname === '/dev-store') {
+      if (req.method === 'POST') {
+        const chunks = [];
+        req.on('error', () => res.destroy());
+        for await (const c of req) chunks.push(c);
+        await writeFile(path.join(ROOT, '.tmp', 'devstore.bin'), Buffer.concat(chunks));
+        if (!res.writableEnded) {
+          res.writeHead(200, { 'Cache-Control': 'no-store' });
+          res.end('stored');
+        }
+        return;
+      }
+      const data = await readFile(path.join(ROOT, '.tmp', 'devstore.bin'));
+      if (!res.writableEnded) {
+        res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' });
+        res.end(data);
+      }
+      return;
+    }
     let rel = decodeURIComponent(url.pathname);
     if (rel === '/') rel = '/index.html';
     const abs = path.join(ROOT, rel);
@@ -29,7 +51,10 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(403); res.end('forbidden'); return;
     }
     const data = await readFile(abs);
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(abs)] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(abs)] || 'application/octet-stream',
+      'Cache-Control': 'no-store'
+    });
     res.end(data);
   } catch {
     res.writeHead(404); res.end('not found');

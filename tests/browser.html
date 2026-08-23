@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>BROWSER-TESTS RUNNING</title></head>
+<body>
+<script>window.addEventListener('error',function(e){document.title='PAGEERR';var d=document.createElement('pre');d.textContent='ERR '+String(e.message||e.error)+' :: '+(e.filename||'')+':'+(e.lineno||'');d.id='browser-results';document.body.appendChild(d);},true);window.addEventListener('unhandledrejection',function(e){document.title='REJECT';var d=document.createElement('pre');d.textContent='REJECT '+String(e.reason&&e.reason.stack||e.reason);d.id='browser-results';document.body.appendChild(d);});</script>
+<script type="module" src="./browser.js"></script>
+</body>
+</html>

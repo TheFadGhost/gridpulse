@@ -24,7 +24,8 @@ The transport keeps an append-only list of anchors: `anchors = [{beat: b_i, time
 - An **Event**:
   ```js
   { trackId, patternId, stepIndex, note /* midi or null */, velocity, // 0..1
-    ratchet /* 1..8 */, nudgeMs /* -40..40 */, time /* audio s, includes swing+nudge+ratchet subdivision */ }
+    ratchet /* 1..8 */, repeat /* 0..ratchet-1 */, nudgeMs /* -40..40 */,
+    time /* audio s = gridTime(step) + swing(step) + nudge + repeat*(stepSpan/ratchet) */ }
   ```
 - Ratchets subdivide the remaining step duration into `ratchet` equal repeats starting at the step time.
 - Probability resolves once per `(cycleCount, stepIndex)` using a seeded RNG (mulberry32, seed = project seed ⊕ hash(patternId, cycle)). Determinism: same seed + same project ⇒ identical event stream (tested over simulated hours).

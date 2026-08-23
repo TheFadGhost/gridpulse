@@ -1,6 +1,3 @@
-import { mulberry32 } from '../core/rng.js';
-
-const REVERB_SEED = 0x5eed;
 const SMOOTH_TC = 0.01;
 const DELAY_MAX = 2;
 const DELAY_MIN = 0.01;
@@ -43,8 +40,8 @@ export function createSharedReturns(ctx) {
   const delayWet = gainNode(ctx, 0);
 
   const reverbIn = gainNode(ctx, 1);
-  const convolver = ctx.createConvolver();
-  convolver.normalize = true;
+  const reverbPre = ctx.createDelay(0.2);
+  reverbPre.delayTime.value = 0.02;
   const reverbWet = gainNode(ctx, 0);
 
   delayIn.connect(delayNode);
@@ -53,15 +50,53 @@ export function createSharedReturns(ctx) {
   delayNode.connect(delayWet);
   delayWet.connect(output);
 
-  reverbIn.connect(convolver);
-  convolver.connect(reverbWet);
-  reverbWet.connect(output);
-
   masterIn.connect(output);
+
+  const COMB_BASE = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
+  const ALLPASS_BASE = [556, 441, 341, 225];
+  const srScale = ctx.sampleRate / 44100;
+  reverbIn.connect(reverbPre);
+  const combFbs = [];
+  const combDamps = [];
+  const combSum = gainNode(ctx, 1 / COMB_BASE.length);
+  for (let i = 0; i < COMB_BASE.length; i++) {
+    const d = ctx.createDelay(0.2);
+    d.delayTime.value = Math.min(0.19, (COMB_BASE[i] * srScale) / ctx.sampleRate);
+    const damp = ctx.createBiquadFilter();
+    damp.type = 'lowpass';
+    damp.frequency.value = 4500;
+    const fb = gainNode(ctx, 0.82);
+    reverbPre.connect(d);
+    d.connect(damp);
+    damp.connect(fb);
+    fb.connect(d);
+    damp.connect(combSum);
+    combFbs.push(fb);
+    combDamps.push(damp);
+  }
+  let apTail = combSum;
+  for (let i = 0; i < ALLPASS_BASE.length; i++) {
+    const d = ctx.createDelay(0.05);
+    d.delayTime.value = Math.min(0.049, (ALLPASS_BASE[i] * srScale) / ctx.sampleRate);
+    const g = gainNode(ctx, 0.7);
+    apTail.connect(d);
+    d.connect(g);
+    g.connect(apTail);
+    apTail = d;
+  }
+  const apOut = gainNode(ctx, 1);
+  apTail.connect(apOut);
+  const widthL = gainNode(ctx, 1);
+  const widthRD = ctx.createDelay(0.05);
+  widthRD.delayTime.value = Math.min(0.049, (23 * srScale) / ctx.sampleRate);
+  apOut.connect(widthL);
+  apOut.connect(widthRD);
+  widthL.connect(reverbWet);
+  widthRD.connect(reverbWet);
+  reverbWet.connect(output);
 
   let bpm = 120;
   let div16ths = 3;
-  let irSize = null;
 
   function delaySeconds() {
     return clamp((div16ths * (60 / bpm)) / 4, DELAY_MIN, DELAY_MAX);
@@ -71,47 +106,13 @@ export function createSharedReturns(ctx) {
     smooth(delayNode.delayTime, delaySeconds(), ctx);
   }
 
-  function makeIR(size) {
-    const lengthSec = 0.3 + size * 2.7;
-    const sampleRate = ctx.sampleRate;
-    const len = Math.max(1, Math.floor(lengthSec * sampleRate));
-    const buf = ctx.createBuffer(2, len, sampleRate);
-    const rngL = mulberry32(REVERB_SEED);
-    const rngR = mulberry32((REVERB_SEED ^ 0x9e3779b9) >>> 0);
-    const earlyEnd = len * 0.1;
-    const tau = lengthSec / 6;
-    for (let ch = 0; ch < 2; ch++) {
-      const rng = ch === 0 ? rngL : rngR;
-      const data = buf.getChannelData(ch);
-      for (let i = 0; i < len; i++) {
-        const t = i / sampleRate;
-        let env = Math.exp(-t / tau);
-        if (i < earlyEnd) env *= 1 + 1.5 * (1 - i / earlyEnd);
-        data[i] = (rng() * 2 - 1) * env;
-      }
-      let peak = 0;
-      for (let i = 0; i < len; i++) peak = Math.max(peak, Math.abs(data[i]));
-      if (peak > 0) {
-        const s = 0.5 / peak;
-        for (let i = 0; i < len; i++) data[i] *= s;
-      }
-    }
-    return buf;
-  }
-
-  function applyIR(size) {
-    if (irSize === size && convolver.buffer) return;
-    irSize = size;
-    convolver.buffer = makeIR(size);
-  }
-
   function dispose() {
     if (disposed) return;
     disposed = true;
     [
       masterIn, output,
       delayIn, delayNode, delayFb, delayWet,
-      reverbIn, convolver, reverbWet
+      reverbIn, reverbPre, combSum, apOut, widthL, reverbWet
     ].forEach((n) => { try { n.disconnect(); } catch (_) {} });
   }
 
@@ -135,7 +136,11 @@ export function createSharedReturns(ctx) {
       smooth(delayWet.gain, clamp(mix, 0, 1), ctx);
     },
     setReverb(size, mix) {
-      applyIR(clamp(size, 0, 1));
+      const s = clamp(size, 0, 1);
+      const fb = 0.72 + s * 0.18;
+      const dampHz = 5200 - s * 3400;
+      for (let i = 0; i < combFbs.length; i++) smooth(combFbs[i].gain, fb - i * 0.004, ctx);
+      for (let i = 0; i < combDamps.length; i++) combDamps[i].frequency.value = dampHz;
       smooth(reverbWet.gain, clamp(mix, 0, 1), ctx);
     },
     dispose
@@ -245,9 +250,9 @@ export function createTrackFX(ctx, returns) {
         comp.release.value = clamp(Number(cp.release) || 0.12, 0, 1);
         smooth(makeup.gain, 1 + (ratio - 1) * 0.08, ctx);
       } else {
-        comp.threshold.value = 0;
+        comp.threshold.value = -10;
         comp.ratio.value = 1;
-        comp.knee.value = 0;
+        comp.knee.value = 24;
         smooth(makeup.gain, 1, ctx);
       }
 

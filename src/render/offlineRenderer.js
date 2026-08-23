@@ -67,6 +67,49 @@ function applyMasterState(returns, project) {
   }
 }
 
+function fxActive(t) {
+  const fx = t.fx || {};
+  return ['drive', 'filter', 'comp', 'delay', 'reverb'].some((k) => fx[k] && fx[k].on);
+}
+
+function createLiteChannel(ctx, returns) {
+  const input = ctx.createGain();
+  const panner = ctx.createStereoPanner();
+  const fader = ctx.createGain();
+  let volume = 0.85;
+  let mute = false;
+  let solo = false;
+  let anySolo = false;
+  function apply() {
+    fader.gain.value = mute || (!solo && anySolo) ? 0 : volume;
+  }
+  input.connect(panner);
+  panner.connect(fader);
+  fader.connect(returns.masterIn);
+  return {
+    input,
+    out: fader,
+    setFX() {},
+    setMixer(m = {}) {
+      volume = m.volume != null ? m.volume : volume;
+      mute = !!m.mute;
+      solo = !!m.solo;
+      panner.pan.value = m.pan || 0;
+      apply();
+    },
+    applySolo(a) {
+      anySolo = !!a;
+      apply();
+    },
+    meter() { return { peak: 0, rms: 0 }; },
+    dispose() {
+      try { input.disconnect(); } catch (_) {}
+      try { panner.disconnect(); } catch (_) {}
+      try { fader.disconnect(); } catch (_) {}
+    }
+  };
+}
+
 function buildGraph(ctx, project) {
   const returns = createSharedReturns(ctx);
   returns.output.connect(ctx.destination);
@@ -79,8 +122,10 @@ function buildGraph(ctx, project) {
 
   for (const t of project.tracks) {
     trackById.set(t.id, t);
-    const ch = createTrackFX(ctx, returns);
-    ch.out.connect(returns.masterIn);
+    const active = fxActive(t);
+    const lite = !active;
+    const ch = lite ? createLiteChannel(ctx, returns) : createTrackFX(ctx, returns);
+    if (!lite) ch.out.connect(returns.masterIn);
     ch.setFX(t.fx);
     ch.setMixer(t.mixer);
     ch.applySolo(anySolo);
