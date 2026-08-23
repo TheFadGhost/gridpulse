@@ -49,4 +49,6 @@ Rules:
 - Validation clamps nothing silently: out-of-range values are errors, not warnings. Extra step fields round-trip untouched.
 - Save/load round-trip equality is tested field-by-field including every per-step parameter.
 
-Sampler tracks additionally keep `"sample": {"name": "...", "data": "<base64>"}` only inside `.local` saves if user opts in ("embed samples"); exported projects by default reference name only and load expects the file. This keeps repos and shared JSON small and avoids shipping audio of unknown provenance.
+Sampler tracks additionally keep `"sampleData": {"name": "...", "sampleRate": 44100, "base64": "<16-bit WAV of the sample>"}` when the project was saved with "embed samples" enabled; exports default to referencing the name only (`sampleData` present as `{name}` from a loaded session) and loading expects the file. This keeps repos and shared JSON small and avoids shipping audio of unknown provenance. Embedded base64 payloads are capped at the same 20 MB decoded limit as file loading.
+
+Track `length` is validated 1..64; at play time each track wraps at `min(track.length, pattern.length)` so per-track lengths inside shorter patterns are safely clamped.

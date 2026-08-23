@@ -1,4 +1,4 @@
-﻿import { AppStore } from './store.js';
+import { AppStore } from './store.js';
 import { defaultProject, makePattern, patternSteps } from '../core/model.js';
 import { Scheduler } from '../audio/scheduler.js';
 import { createEngine } from '../audio/engine.js';
@@ -26,7 +26,10 @@ import {
   deleteLocalSlot, downloadProjectJSON, readProjectFile,
   embedSamples, extractEmbeddedSamples
 } from '../io/projectio.js';
-import { loadSampleFile } from '../audio/samplelib.js';
+import { loadSampleFile, decodeSampleBytes } from '../audio/samplelib.js';
+import { buildSchedulerView } from '../audio/view.js';
+import { downloadBlob as dl } from '../ui/download.js';
+import { base64ToBytes } from '../core/b64.js';
 import { snapToScale } from '../core/scales.js';
 
 
@@ -34,25 +37,7 @@ function stepsPerBeatOf(den) { return Math.max(1, Math.round(16 / den)); }
 function beatsPerBarOf(num, den) { return num * den / 4; }
 
 function schedulerView() {
-  const p = store.getProject();
-  const patterns = {};
-  for (const pat of p.patterns) {
-    patterns[pat.id] = { id: pat.id, length: pat.length, steps: pat.steps };
-  }
-  const chain = p.song.chain.length ? p.song.chain : [p.patterns[0].id];
-  return {
-    tracks: p.tracks.map(t => ({ id: t.id, type: t.type, length: t.length })),
-    patterns,
-    patternId: store.selectedPatternId || p.patterns[0].id,
-    chain,
-    songMode: p.song.mode === 'song',
-    seed: p.seed | 0,
-    swing: p.swing,
-    bpm: p.bpm,
-    metronome: p.metronome,
-    stepsPerBeat: stepsPerBeatOf(p.timeSig.den),
-    beatsPerBar: beatsPerBarOf(p.timeSig.num, p.timeSig.den)
-  };
+  return buildSchedulerView(store.getProject(), store.selectedPatternId);
 }
 
 
@@ -107,7 +92,7 @@ function buildHelp() {
     <tr><td>Ctrl+Z / Ctrl+Y</td><td>undo / redo</td></tr>
     <tr><td>G</td><td>focus step grid</td></tr>
     <tr><td>P</td><td>focus piano roll</td></tr>
-    <tr><td colspan="2">â€” grid â€”</td></tr>
+<tr><td colspan="2">- grid -</td></tr>
     <tr><td>arrows</td><td>move cell cursor</td></tr>
     <tr><td>Space / Enter</td><td>toggle step</td></tr>
     <tr><td>[ ]</td><td>nudge -/+ 10 ms</td></tr>
@@ -115,7 +100,7 @@ function buildHelp() {
     <tr><td>r</td><td>cycle ratchet 1..4</td></tr>
     <tr><td>c / v</td><td>copy / paste steps</td></tr>
     <tr><td>Esc</td><td>clear selection</td></tr>
-    <tr><td colspan="2">â€” mouse modifiers â€”</td></tr>
+<tr><td colspan="2">- mouse modifiers -</td></tr>
     <tr><td>Shift+click</td><td>cycle velocity 40/70/100%</td></tr>
     <tr><td>Alt+click</td><td>cycle probability 100/50/25%</td></tr>
     <tr><td>Ctrl+click</td><td>cycle ratchet 1-4</td></tr>
@@ -460,10 +445,6 @@ function startMeterLoop() {
       if (!ch) continue;
       try { ui.mixer.setMeter(t.id, ch.meter()); } catch {}
     }
-    try {
-      const m = engine.masterMeter();
-      void m;
-    } catch {}
     const frac = Math.min(1, headroom.max / 30);
     const fill = $('headroom-fill');
     if (fill) {
@@ -472,6 +453,7 @@ function startMeterLoop() {
     }
   }, 66);
 }
+window.addEventListener('beforeunload', () => { if (meterTimer) clearInterval(meterTimer); });
 
 function mountComponents() {
   ui.grid = createStepGrid($('grid'), {
@@ -557,7 +539,7 @@ async function loadSampleInto(tid, file) {
     const v = voices.get(tid);
     if (v && v.setBuffer) v.setBuffer(buffer);
     const t = store.getProject().tracks.find(x => x.id === tid);
-    if (t) t.sample = { name };
+    if (t) t.sampleData = { name };
     ui.soundbay.render(t, { key, scaleName: scaleLabel(), scaleNames: Object.keys(SCALES), keyNames: NOTE_NAMES });
     toast(`sample loaded: ${name}`);
     announce(`sample loaded: ${name}`);
@@ -572,17 +554,8 @@ function scaleLabel() { return scaleName; }
 function quantizeSelected() {
   const t = store.getProject().tracks.find(x => x.id === selectedTrackId);
   if (!t || t.type === 'drum') return;
-  const pat = currentPattern();
-  const steps = pat.steps[t.id] || [];
-  let changed = 0;
-  for (const s of steps) {
-    if (s.on && s.note != null) {
-      const snapped = snapToScale(s.note, key, scaleName);
-      if (snapped !== s.note) { s.note = snapped; changed++; }
-    }
-  }
+  const changed = store.quantizeTrack(t.id, key, scaleName);
   toast(`quantized ${changed} notes to ${NOTE_NAMES[key]} ${scaleName}`);
-  refreshRoll();
   announce(`quantized to ${NOTE_NAMES[key]} ${scaleName}`);
 }
 
@@ -700,20 +673,13 @@ function updateStatus() {
   if (engine) stateText = `audio ${engine.state()}`;
   const blocked = !engine || engine.state() !== 'running';
   bar.classList.toggle('is-audio-blocked', blocked);
-  if (!bar.querySelector('.st-state')) {
-    bar.innerHTML = `<span class="st-state"></span>
-      <button id="status-unblock">CLICK TO START AUDIO</button>
-      <span class="st-midi"></span>
-      <span class="st-grow"></span>
-      <span class="gp-label">CPU</span><div id="headroom-bar"><div id="headroom-fill"></div></div>
-      <span class="st-hint"></span>`;
-    $('status-unblock').onclick = () => ensureEngine().then(() => engine.resume()).catch(() => {});
-  }
+  if (!bar.querySelector('.st-state')) buildStatusSkeleton();
   bar.querySelector('.st-state').textContent = stateText;
   bar.querySelector('.st-midi').textContent = midiStatusText;
   bar.querySelector('.st-hint').textContent = playing
     ? `${store.getProject().bpm} bpm - space stops`
     : 'space plays - click cells to program - ? for keys';
+  ui.transport && ui.transport.setBlocked(blocked);
 }
 
 let midiStatusText = 'midi off';
@@ -779,32 +745,19 @@ async function loadEmbeddedAfterImport(project) {
     await ensureEngine();
     const embedded = extractEmbeddedSamples(project);
     for (const [tid, info] of embedded) {
-      const bytes = base64ToBytes(info.base64);
-      const buf = await engine.ctx.decodeAudioData(bytes.buffer);
-      sampleBuffers.set(tid, { buffer: buf, name: info.name });
-      const v = voices.get(tid);
-      if (v && v.setBuffer) v.setBuffer(buf);
+      try {
+        const bytes = base64ToBytes(info.base64);
+        const { buffer } = await decodeSampleBytes(bytes, info.name || tid, engine.ctx);
+        sampleBuffers.set(tid, { buffer, name: info.name });
+        const v = voices.get(tid);
+        if (v && v.setBuffer) v.setBuffer(buffer);
+      } catch (e) {
+        toast(`${e.message}`, 'error');
+      }
     }
   } catch (e) {
-    toast(`embedded sample decode failed: ${e.message}`, 'error');
+    toast(`embedded sample load failed: ${e.message}`, 'error');
   }
-}
-
-function base64ToBytes(b64) {
-  const bin = atob(b64);
-  const u8 = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-  return u8;
-}
-
-function dl(blob, filename) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
 function exportMidiFile() {
@@ -970,7 +923,10 @@ function openSettings() {
     } catch (e) { toast(`render failed: ${e.message}`, 'error'); }
     btn.disabled = false; btn.textContent = 'RENDER WAV';
   };
-  dlg.querySelector('#s-midifile').onclick = () => exportMidiFile();
+  dlg.querySelector('#s-midifile').onclick = () => {
+    try { exportMidiFile(); }
+    catch (e) { toast(`MIDI export failed: ${e.message}`, 'error'); }
+  };
   dlg.showModal();
 }
 

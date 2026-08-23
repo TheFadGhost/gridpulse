@@ -23,6 +23,22 @@ function decodeFailure(name, err) {
   return new Error(`cannot decode ${name}: ${reason}`);
 }
 
+export async function decodeSampleBytes(bytes, name, ctx) {
+  if (bytes.byteLength > MAX_SAMPLE_BYTES) {
+    throw new Error(`file too large (>20 MB): ${name}`);
+  }
+  let decoded;
+  try {
+    decoded = await decodeCompat(ctx, bytes.slice(0));
+  } catch (err) {
+    throw decodeFailure(name, err);
+  }
+  if (!decoded || typeof decoded !== 'object' || typeof decoded.length !== 'number' || decoded.numberOfChannels < 1 || decoded.length < 1) {
+    throw decodeFailure(name, null);
+  }
+  return { buffer: decoded, name };
+}
+
 export async function loadSampleFile(file, ctx) {
   const name = file && file.name ? String(file.name) : 'sample';
   if (file.size > MAX_SAMPLE_BYTES) {
@@ -61,23 +77,3 @@ export async function loadSampleFile(file, ctx) {
   return { buffer: decoded, name };
 }
 
-export function audioBufferToMonoSummary(buffer) {
-  if (!buffer || typeof buffer !== 'object') {
-    return { durationSec: 0, sampleRate: 0, channels: 0 };
-  }
-  return {
-    durationSec:
-      typeof buffer.duration === 'number' && Number.isFinite(buffer.duration)
-        ? buffer.duration
-        : 0,
-    sampleRate:
-      typeof buffer.sampleRate === 'number' && Number.isFinite(buffer.sampleRate)
-        ? buffer.sampleRate
-        : 0,
-    channels:
-      typeof buffer.numberOfChannels === 'number' &&
-      Number.isFinite(buffer.numberOfChannels)
-        ? buffer.numberOfChannels
-        : 0
-  };
-}

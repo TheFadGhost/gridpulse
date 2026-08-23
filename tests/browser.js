@@ -5,6 +5,7 @@ import {
 } from '../src/render/offlineRenderer.js';
 import { validateProject } from '../src/core/schema.js';
 import { Scheduler } from '../src/audio/scheduler.js';
+import { buildSchedulerView } from '../src/audio/view.js';
 
 const out = [];
 const only = new URLSearchParams(location.search).get('only') || 'all';
@@ -14,21 +15,7 @@ function report(name, pass, detail) {
 }
 
 function schedulerView(p) {
-  const patterns = {};
-  for (const pat of p.patterns) patterns[pat.id] = { id: pat.id, length: pat.length, steps: pat.steps };
-  return {
-    tracks: p.tracks.map(t => ({ id: t.id, type: t.type, length: t.length })),
-    patterns,
-    patternId: p.patterns[0].id,
-    chain: [p.patterns[0].id],
-    songMode: false,
-    seed: p.seed | 0,
-    swing: p.swing,
-    bpm: p.bpm,
-    metronome: p.metronome,
-    stepsPerBeat: 4,
-    beatsPerBar: 4
-  };
+  return buildSchedulerView(p, p.patterns[0].id);
 }
 
 async function phaseRenderX2(project) {
@@ -39,19 +26,6 @@ async function phaseRenderX2(project) {
     identical = await renderTwiceByteIdentical(project);
   } catch (e) { report('render x2', false, e.stack || e.message); return; }
   report('double render byte-identical', identical === true);
-}
-
-function bytesToB64(u8) {
-  let s = '';
-  const CH = 0x8000;
-  for (let i = 0; i < u8.length; i += CH) s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
-  return btoa(s);
-}
-function b64ToBytes(b64) {
-  const bin = atob(b64);
-  const u8 = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-  return u8;
 }
 
 async function renderOnceWavBytes(project) {

@@ -1,6 +1,5 @@
 import { seededFor } from './rng.js';
 
-export const MAX_STEPS = 64;
 export const UNDO_DEPTH = 100;
 
 let idCounter = 0;
@@ -155,6 +154,3 @@ export function defaultProject() {
   };
 }
 
-export function projectRngFor(project, label) {
-  return seededFor(project.seed | 0, label);
-}

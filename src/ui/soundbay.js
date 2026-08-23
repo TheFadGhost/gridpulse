@@ -227,7 +227,7 @@ export function createSoundBay(container, handlers) {
     const nameLabel = document.createElement('span');
     nameLabel.className = 'gp-label';
     nameLabel.title = 'Current sample';
-    nameLabel.textContent = String((t.sample && t.sample.name) || 'no sample');
+    nameLabel.textContent = String((t.sampleData && t.sampleData.name) || 'no sample');
 
     row.append(fileBtn, input, nameLabel);
 
@@ -267,7 +267,7 @@ export function createSoundBay(container, handlers) {
 
     const row = addRow(panel);
     let keyVal = Number.isFinite(ctx.key) ? ctx.key : 0;
-    let scaleVal = ctx.scale ?? scaleNames[0] ?? '';
+    let scaleVal = ctx.scaleName ?? scaleNames[0] ?? '';
 
     const keySel = addSelect(row, 'key',
       keyNames.map((n, i) => ({ value: i, text: n })),

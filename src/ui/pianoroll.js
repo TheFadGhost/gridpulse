@@ -17,11 +17,10 @@
 // applies the change and calls back updateCell(trackId, stepIndex).
 import { patternSteps } from '../core/model.js';
 import { NOTE_NAMES, scaleNotes, snapToScale } from '../core/scales.js';
-
+import { clamp } from '../core/util.js';
 const STYLE_ID = 'gp-pr-styles';
 const DEFAULT_LOW = 36;
 const DEFAULT_HIGH = 84;
-
 const STYLE_TEXT = `
 .gp-pr-scroll {
   overflow: auto;
@@ -40,7 +39,7 @@ const STYLE_TEXT = `
   flex: none;
   width: 44px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1;
   letter-spacing: 0.04em;
@@ -56,7 +55,7 @@ const STYLE_TEXT = `
   cursor: pointer;
 }
 @media (pointer: coarse) { .gp-pr-cell { width: var(--cell-size-coarse); } }
-.gp-pr-cell:focus { outline: none; }
+.gp-pr-cell:focus:not(:focus-visible) { outline: none; }
 .gp-pr-cell[data-offscale="1"] {
   border-color: color-mix(in srgb, var(--cell-off-border) 50%, transparent);
 }
@@ -78,7 +77,6 @@ const STYLE_TEXT = `
   outline-offset: 0;
 }
 `;
-
 function injectStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const el = document.createElement('style');
@@ -86,26 +84,21 @@ function injectStyles() {
   el.textContent = STYLE_TEXT;
   document.head.appendChild(el);
 }
-
 function midiLabel(midi) {
   return NOTE_NAMES[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);
 }
-
 function clampInt(v, lo, hi) {
   const n = Math.round(Number(v));
   if (!Number.isFinite(n)) return lo;
   return Math.min(hi, Math.max(lo, n));
 }
-
 export function createPianoRoll(container, handlers) {
   injectStyles();
-
   const h = {
     onSetNote: typeof handlers?.onSetNote === 'function' ? handlers.onSetNote : () => {},
     onSelect: typeof handlers?.onSelect === 'function' ? handlers.onSelect : () => {},
     onAnnounce: typeof handlers?.onAnnounce === 'function' ? handlers.onAnnounce : () => {}
   };
-
   const st = {
     project: null,
     patternId: null,
@@ -122,7 +115,6 @@ export function createPianoRoll(container, handlers) {
     drag: null,
     suppressClick: false
   };
-
   const root = document.createElement('div');
   root.className = 'gp-pr';
   const scroller = document.createElement('div');
@@ -134,24 +126,19 @@ export function createPianoRoll(container, handlers) {
   scroller.appendChild(grid);
   root.appendChild(scroller);
   container.appendChild(root);
-
   let scaleArr = [];          // ascending MIDI notes of key/scale over 0..127
   let scaleSetPc = new Set(); // pitch classes of the scale relative to key 0
   const rowEls = new Map();   // midi -> row element
   const cells = new Map();    // `${step}:${midi}` -> cell element
   const ac = new AbortController();
-
   // ---------- geometry helpers ----------
-
   function rebuildScale() {
     scaleArr = scaleNotes(st.key, st.scaleName);
     scaleSetPc = new Set(scaleArr.map(n => n % 12));
   }
-
   function isScaleRow(midi) {
     return scaleSetPc.has(((midi % 12) + 12) % 12);
   }
-
   function nextDegree(midi, dir) {
     // Nearest scale pitch strictly above/below `midi`, clamped to visible range.
     if (dir > 0) {
@@ -169,14 +156,11 @@ export function createPianoRoll(container, handlers) {
     }
     return found !== -1 && found >= st.low ? found : -1;
   }
-
   function trackColorVar(slot) {
     const n = clampInt(slot || 7, 1, 8);
     return `var(--track-${n})`;
   }
-
   // ---------- painting ----------
-
   function paintCell(cell, stepIndex) {
     const s = st.steps ? st.steps[stepIndex] : null;
     const pitch = Number(cell.dataset.pitch);
@@ -212,7 +196,6 @@ export function createPianoRoll(container, handlers) {
       cell.removeAttribute('data-ratchet');
     }
   }
-
   function refreshFocusClasses() {
     for (const cell of cells.values()) {
       const sel = Number(cell.dataset.step) === st.focusStep &&
@@ -223,7 +206,6 @@ export function createPianoRoll(container, handlers) {
       cell.tabIndex = sel ? 0 : -1;
     }
   }
-
   function setFocus(step, midi, opts = {}) {
     st.focusStep = clampInt(step, 0, Math.max(0, st.pattern ? st.pattern.length - 1 : 0));
     st.focusMidi = clampInt(midi, st.low, st.high);
@@ -237,16 +219,13 @@ export function createPianoRoll(container, handlers) {
     }
     h.onSelect(st.track ? st.track.id : null, st.focusStep);
   }
-
   // ---------- build ----------
-
   function buildGrid() {
     grid.textContent = '';
     grid.setAttribute('aria-label',
       `Piano roll${st.track ? ': ' + st.track.name : ''}, key ${NOTE_NAMES[st.key % 12]} ${st.scaleName}`);
     rowEls.clear();
     cells.clear();
-
     const len = st.pattern ? st.pattern.length : 0;
     for (let midi = st.high; midi >= st.low; midi--) {
       const row = document.createElement('div');
@@ -256,7 +235,6 @@ export function createPianoRoll(container, handlers) {
       if (((midi % 12) + 12) % 12 !== 0 && [1, 3, 6, 8, 10].includes(((midi % 12) + 12) % 12)) {
         row.dataset.black = '1';
       }
-
       const label = document.createElement('div');
       label.className = 'gp-pr-label';
       label.setAttribute('role', 'rowheader');
@@ -265,7 +243,6 @@ export function createPianoRoll(container, handlers) {
         label.textContent = midiLabel(midi);
       }
       row.appendChild(label);
-
       for (let step = 0; step < len; step++) {
         const cell = document.createElement('div');
         cell.className = 'gp-cell gp-pr-cell';
@@ -284,9 +261,7 @@ export function createPianoRoll(container, handlers) {
     }
     refreshFocusClasses();
   }
-
   // ---------- public API ----------
-
   function render(project, patternId, trackId, key, scaleName) {
     st.project = project || null;
     st.patternId = patternId;
@@ -312,7 +287,6 @@ export function createPianoRoll(container, handlers) {
     st.focusMidi = clampInt(startMidi, st.low, st.high);
     refreshFocusClasses();
   }
-
   function updateCell(trackId, stepIndex) {
     if (!st.steps || !st.track || st.track.id !== trackId) return;
     const len = st.pattern ? st.pattern.length : 0;
@@ -323,7 +297,6 @@ export function createPianoRoll(container, handlers) {
       if (cell) paintCell(cell, idx);
     }
   }
-
   function setVisibleRange(lowMidi, highMidi) {
     let lo = clampInt(lowMidi, 0, 127);
     let hi = clampInt(highMidi, 0, 127);
@@ -337,7 +310,6 @@ export function createPianoRoll(container, handlers) {
       refreshFocusClasses();
     }
   }
-
   function clearPlayhead() {
     if (st.playheadStep < 0) return;
     for (let midi = st.high; midi >= st.low; midi--) {
@@ -346,7 +318,6 @@ export function createPianoRoll(container, handlers) {
     }
     st.playheadStep = -1;
   }
-
   function setPlayhead(stepIndexOrNull) {
     clearPlayhead();
     if (stepIndexOrNull == null || !st.pattern) return;
@@ -360,7 +331,6 @@ export function createPianoRoll(container, handlers) {
       }
     }
   }
-
   function dispose() {
     ac.abort();
     endDrag(false);
@@ -372,30 +342,24 @@ export function createPianoRoll(container, handlers) {
     st.track = null;
     st.steps = null;
   }
-
   // ---------- interactions ----------
-
   function announce(text) {
     h.onAnnounce(text);
   }
-
   function commitSet(stepIndex, midi, sourceLabel, verb) {
     if (!st.track) return;
     h.onSetNote(st.track.id, stepIndex, midi, sourceLabel);
     announce(`${st.track.name} step ${stepIndex + 1} ${verb} ${midiLabel(midi)}`);
   }
-
   function commitClear(stepIndex, sourceLabel) {
     if (!st.track) return;
     h.onSetNote(st.track.id, stepIndex, null, sourceLabel);
     announce(`${st.track.name} step ${stepIndex + 1} removed`);
   }
-
   function noteAt(stepIndex) {
     const s = st.steps ? st.steps[stepIndex] : null;
     return s && s.on && s.note != null ? s.note : null;
   }
-
   function toggleAt(stepIndex, rowMidi, sourceLabel) {
     // Same cell as the live note -> remove. Any other row -> place/move,
     // always snapped: the committed pitch can never leave the scale.
@@ -407,7 +371,6 @@ export function createPianoRoll(container, handlers) {
     const target = snapToScale(clampInt(rowMidi, 0, 127), st.key, st.scaleName);
     commitSet(stepIndex, target, sourceLabel, cur != null ? 'moved to' : 'set to');
   }
-
   // Vertical drag: preview moves through scale degrees only; single commit.
   function beginDrag(e) {
     const cell = e.target.closest('.gp-pr-cell');
@@ -419,7 +382,6 @@ export function createPianoRoll(container, handlers) {
     st.drag = { pointerId: e.pointerId, stepIndex, from: midi, cur: midi, moved: false, previewCell: null };
     return true;
   }
-
   function dragPreview(pitch) {
     const d = st.drag;
     if (!d) return;
@@ -434,7 +396,6 @@ export function createPianoRoll(container, handlers) {
     }
     d.moved = true;
   }
-
   function endDrag(commit) {
     const d = st.drag;
     if (!d) return;
@@ -445,7 +406,6 @@ export function createPianoRoll(container, handlers) {
       commitSet(d.stepIndex, d.cur, 'pianoroll:drag', 'moved to');
     }
   }
-
   function shiftOctave(dir) {
     const midi = noteAt(st.focusStep);
     if (midi == null) return;
@@ -456,7 +416,6 @@ export function createPianoRoll(container, handlers) {
     }
     commitSet(st.focusStep, next, 'pianoroll:kbd-octave', dir > 0 ? 'octave up to' : 'octave down to');
   }
-
   grid.addEventListener('click', (e) => {
     if (st.suppressClick) { st.suppressClick = false; return; }
     const cell = e.target.closest('.gp-pr-cell');
@@ -465,7 +424,6 @@ export function createPianoRoll(container, handlers) {
     setFocus(stepIndex, Number(cell.dataset.pitch));
     toggleAt(stepIndex, Number(cell.dataset.pitch), 'pianoroll:click');
   }, { signal: ac.signal });
-
   grid.addEventListener('contextmenu', (e) => {
     const cell = e.target.closest('.gp-pr-cell');
     if (!cell || !grid.contains(cell)) return;
@@ -474,12 +432,10 @@ export function createPianoRoll(container, handlers) {
     setFocus(stepIndex, Number(cell.dataset.pitch));
     if (noteAt(stepIndex) != null) commitClear(stepIndex, 'pianoroll:rightclick');
   }, { signal: ac.signal });
-
   grid.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     beginDrag(e);
   }, { signal: ac.signal });
-
   grid.addEventListener('pointermove', (e) => {
     if (!st.drag || e.pointerId !== st.drag.pointerId) return;
     const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -488,7 +444,6 @@ export function createPianoRoll(container, handlers) {
     if (Number(cell.dataset.step) !== st.drag.stepIndex) return; // horizontal moves ignored
     dragPreview(Number(cell.dataset.pitch));
   }, { signal: ac.signal });
-
   const finishDrag = (commit) => (e) => {
     if (!st.drag || e.pointerId !== st.drag.pointerId) return;
     try { e.target.releasePointerCapture(e.pointerId); } catch { /* already released */ }
@@ -496,7 +451,6 @@ export function createPianoRoll(container, handlers) {
   };
   grid.addEventListener('pointerup', finishDrag(true), { signal: ac.signal });
   grid.addEventListener('pointercancel', finishDrag(false), { signal: ac.signal });
-
   grid.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const len = st.pattern ? st.pattern.length : 0;
@@ -532,7 +486,6 @@ export function createPianoRoll(container, handlers) {
     }
     if (handled) e.preventDefault();
   }, { signal: ac.signal });
-
   return {
     render,
     updateCell,

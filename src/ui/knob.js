@@ -1,3 +1,4 @@
+import { clamp } from '../core/util.js';
 // Rotary knob control (36px hardware idiom per DESIGN.md "Controls").
 //
 // Visuals come from components.css: JS drives two custom props on .gp-knob —
@@ -23,16 +24,12 @@ export function createKnob({
   const fmt = typeof format === 'function' ? format : (v) => v.toFixed(2);
   const resetTo = Number.isFinite(defaultValue) ? defaultValue
     : (Number.isFinite(value) ? value : lo);
-
   let val = clamp(Number.isFinite(value) ? value : lo);
   let cb = null;
-
   const ac = new AbortController();
   const sig = { signal: ac.signal };
-
   const wrap = document.createElement('div');
   wrap.className = 'gp-param';
-
   const knob = document.createElement('button');
   knob.type = 'button';
   knob.className = 'gp-knob';
@@ -42,29 +39,22 @@ export function createKnob({
   knob.setAttribute('aria-valuemax', String(hi));
   knob.tabIndex = 0;
   knob.style.touchAction = 'none';
-
   const labelEl = document.createElement('span');
   labelEl.className = 'gp-label';
   labelEl.textContent = String(label ?? '');
-
   const valueEl = document.createElement('span');
   valueEl.className = 'gp-value';
-
   wrap.append(knob, labelEl, valueEl);
-
   let hideTimer = 0;
   let drag = null;
-
   function clamp(v) {
     if (!Number.isFinite(v)) return lo;
     return Math.min(hi, Math.max(lo, v));
   }
-
   function quantize(v) {
     const q = lo + Math.round((v - lo) / stp) * stp;
     return clamp(Number(q.toFixed(decimals + 4)));
   }
-
   function paint() {
     const t = hi > lo ? (val - lo) / (hi - lo) : 0;
     const tc = Math.min(1, Math.max(0, t));
@@ -74,14 +64,12 @@ export function createKnob({
     knob.setAttribute('aria-valuetext', String(fmt(val)));
     valueEl.textContent = String(fmt(val));
   }
-
   // Readout shows while adjusting and holds 1s after the last change.
   function flashReadout() {
     wrap.classList.add('is-readout');
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => wrap.classList.remove('is-readout'), 1000);
   }
-
   function commit(raw) {
     const next = quantize(raw);
     if (next === val) return;
@@ -90,21 +78,18 @@ export function createKnob({
     flashReadout();
     if (cb) cb(val);
   }
-
   knob.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     drag = { id: e.pointerId, y: e.clientY, v: val };
     try { knob.setPointerCapture(e.pointerId); } catch { /* synthetic events */ }
     e.preventDefault();
   }, sig);
-
   knob.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     const fine = e.shiftKey ? 0.1 : 1;
     const dy = drag.y - e.clientY;            // up = increase, full range/150px
     commit(drag.v + (dy / 150) * (hi - lo) * fine);
   }, sig);
-
   const endDrag = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     try { knob.releasePointerCapture(e.pointerId); } catch { /* already up */ }
@@ -112,18 +97,15 @@ export function createKnob({
   };
   knob.addEventListener('pointerup', endDrag, sig);
   knob.addEventListener('pointercancel', endDrag, sig);
-
   knob.addEventListener('dblclick', () => {
     commit(resetTo);
   }, sig);
-
   knob.addEventListener('wheel', (e) => {
     e.preventDefault();
     const dir = e.deltaY < 0 ? 1 : -1;
     const fine = e.shiftKey ? 0.1 : 1;
     commit(val + dir * stp * fine);
   }, { ...sig, passive: false });
-
   knob.addEventListener('keydown', (e) => {
     const fine = e.shiftKey ? 0.1 : 1;
     let next = null;
@@ -139,9 +121,7 @@ export function createKnob({
     e.preventDefault();
     commit(next);
   }, sig);
-
   paint();
-
   return {
     el: wrap,
     set(v) { val = clamp(Number(v)); paint(); },

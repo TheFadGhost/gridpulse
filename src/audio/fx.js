@@ -3,7 +3,7 @@ const DELAY_MAX = 2;
 const DELAY_MIN = 0.01;
 const FEEDBACK_MAX = 0.95;
 
-export function clamp(v, lo, hi) {
+function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
@@ -58,6 +58,8 @@ export function createSharedReturns(ctx) {
   reverbIn.connect(reverbPre);
   const combFbs = [];
   const combDamps = [];
+  const combDelays = [];
+  const allpassNodes = [];
   const combSum = gainNode(ctx, 1 / COMB_BASE.length);
   for (let i = 0; i < COMB_BASE.length; i++) {
     const d = ctx.createDelay(0.2);
@@ -73,6 +75,7 @@ export function createSharedReturns(ctx) {
     damp.connect(combSum);
     combFbs.push(fb);
     combDamps.push(damp);
+    combDelays.push(d);
   }
   let apTail = combSum;
   for (let i = 0; i < ALLPASS_BASE.length; i++) {
@@ -83,6 +86,7 @@ export function createSharedReturns(ctx) {
     d.connect(g);
     g.connect(apTail);
     apTail = d;
+    allpassNodes.push(d, g);
   }
   const apOut = gainNode(ctx, 1);
   apTail.connect(apOut);
@@ -112,7 +116,8 @@ export function createSharedReturns(ctx) {
     [
       masterIn, output,
       delayIn, delayNode, delayFb, delayWet,
-      reverbIn, reverbPre, combSum, apOut, widthL, reverbWet
+      reverbIn, reverbPre, combSum, apOut, widthL, widthRD, reverbWet,
+      ...combDelays, ...combDamps, ...combFbs, ...allpassNodes
     ].forEach((n) => { try { n.disconnect(); } catch (_) {} });
   }
 
@@ -128,7 +133,7 @@ export function createSharedReturns(ctx) {
       applyDelayTime();
     },
     setDelayDivision(divs) {
-      div16ths = clamp(Number(divs) || 0, DELAY_MIN, 64);
+      div16ths = clamp(Math.round(Number(divs) || 3), 1, 16);
       applyDelayTime();
     },
     setDelay(feedback, mix) {

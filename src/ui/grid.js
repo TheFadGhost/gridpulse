@@ -1,3 +1,4 @@
+import { clamp } from '../core/util.js';
 // Step sequencer grid. Rows = tracks, columns = 16th steps.
 //
 // DOM contract (styles/grid.css is authoritative — selectors matched exactly):
@@ -17,20 +18,17 @@
 // Reduced motion: CSS hides .gp-playhead; setPlayheadBeat then drives the
 // discrete column highlight (.gp-col-active + .is-playing via setActiveStep).
 const STYLE_ID = 'gp-grid-styles';
-
 const VEL_PRESETS = [0.4, 0.7, 1];
 const PROB_PRESETS = [1, 0.5, 0.25]; // high -> low; '{' goes down, '}' up
 const RAT_PRESETS = [1, 2, 3, 4];
 const NUDGE_DELTA = 10;
-
 const DEF_STEP = { on: false, vel: 0.8, prob: 1, ratchet: 1, nudge: 0 };
 const RATCHET_CLASSES = ['r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8'];
-
 const STYLE_TEXT = `
 .gp-grid { user-select: none; -webkit-user-select: none; }
 .gp-grid .gp-cell { cursor: pointer; }
 .gp-grid .gp-cell[data-ph="1"] { cursor: default; opacity: 0.3; }
-.gp-grid .gp-cell:focus { outline: none; }
+.gp-grid .gp-cell:focus:not(:focus-visible) { outline: none; }
 .gp-cap {
   position: absolute;
   top: -3px;
@@ -50,7 +48,7 @@ const STYLE_TEXT = `
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-ui);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.03em;
   color: var(--fg);
@@ -61,12 +59,11 @@ const STYLE_TEXT = `
   padding: 0;
   border-radius: var(--radius-1);
   font-family: var(--font-ui);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1;
 }
 `;
-
 function injectStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const el = document.createElement('style');
@@ -74,40 +71,32 @@ function injectStyles() {
   el.textContent = STYLE_TEXT;
   document.head.appendChild(el);
 }
-
 function clampInt(v, lo, hi) {
   const n = Math.round(Number(v));
   if (!Number.isFinite(n)) return lo;
   return Math.min(hi, Math.max(lo, n));
 }
-
 function clamp01(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return 0;
   return Math.min(1, Math.max(0, n));
 }
-
 function near(a, b) { return Math.abs(a - b) < 1e-6; }
-
 // Next entry of a preset cycle relative to the current value.
 function cycleNext(list, cur, dir = 1) {
   const idx = list.findIndex((v) => near(v, cur));
   if (idx === -1) return dir > 0 ? list[0] : list[list.length - 1];
   return list[(idx + dir + list.length) % list.length];
 }
-
 export function createStepGrid(container, handlers = {}) {
   injectStyles();
-
   const h = {};
   for (const k of ['onToggle', 'onStepParam', 'onCopy', 'onPaste', 'onSelect',
     'onTrackMute', 'onTrackSolo', 'onAnnounce']) {
     h[k] = typeof handlers[k] === 'function' ? handlers[k] : () => {};
   }
-
   const ac = new AbortController();
   const sig = { signal: ac.signal };
-
   // ---- state -------------------------------------------------------------
   let project = null;
   let pattern = null;
@@ -123,42 +112,34 @@ export function createStepGrid(container, handlers = {}) {
   let cacheDirty = true;
   let drag = null;                    // pointer paint state
   let suppressClick = false;
-
   const reducedMQ = window.matchMedia
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
     : { matches: false, addEventListener() {} };
-
   // ---- DOM skeleton ------------------------------------------------------
   const grid = document.createElement('div');
   grid.className = 'gp-grid';
   grid.setAttribute('role', 'grid');
   grid.setAttribute('aria-label', 'Step sequencer grid');
   container.appendChild(grid);
-
   const playhead = document.createElement('div');
   playhead.className = 'gp-playhead';
   playhead.style.display = 'none';
-
   let resizeObs = null;
   if (typeof ResizeObserver === 'function') {
     resizeObs = new ResizeObserver(() => { cacheDirty = true; });
     resizeObs.observe(grid);
   }
-
   // ---- read-only project mirroring ----------------------------------------
   function stepAt(tid, i) {
     const arr = pattern && pattern.steps ? pattern.steps[tid] : null;
     const s = arr ? arr[i] : null;
     return s && typeof s === 'object' ? s : DEF_STEP;
   }
-
   function trackRef(tid) { return refs.get(tid) || null; }
-
   function activeLenOf(tid) {
     const R = refs.get(tid);
     return R ? R.activeLen : cols;
   }
-
   // ---- painting ------------------------------------------------------------
   function clearDynamic(cell) {
     delete cell.dataset.on;
@@ -170,14 +151,12 @@ export function createStepGrid(container, handlers = {}) {
     cell.classList.remove(...RATCHET_CLASSES);
     cell.style.removeProperty('--cell-fill');
   }
-
   function paintCell(cell, tid, i) {
     const R = refs.get(tid);
     if (!R || !cell) return;
     const name = R.track.name;
     const ph = i >= R.activeLen;
     clearDynamic(cell);
-
     if (ph) {
       cell.setAttribute('data-ph', '1');
       cell.setAttribute('aria-disabled', 'true');
@@ -186,13 +165,11 @@ export function createStepGrid(container, handlers = {}) {
     }
     cell.removeAttribute('data-ph');
     cell.removeAttribute('aria-disabled');
-
     const s = stepAt(tid, i);
     const vel = clamp01(s.vel != null ? s.vel : DEF_STEP.vel);
     const prob = clamp01(s.prob != null ? s.prob : DEF_STEP.prob);
     const rat = clampInt(s.ratchet != null ? s.ratchet : 1, 1, 8);
     const nudge = Math.round(Number(s.nudge) || 0);
-
     let label = `${name}, step ${i + 1}: ${s.on ? 'on' : 'off'}`;
     if (s.on) {
       cell.dataset.on = '1';
@@ -215,7 +192,6 @@ export function createStepGrid(container, handlers = {}) {
     }
     cell.setAttribute('aria-label', label);
   }
-
   function paintRow(tid) {
     const R = refs.get(tid);
     if (!R) return;
@@ -223,7 +199,6 @@ export function createStepGrid(container, handlers = {}) {
     R.muteBtn.setAttribute('aria-pressed', R.track.mixer.mute ? 'true' : 'false');
     R.soloBtn.setAttribute('aria-pressed', R.track.mixer.solo ? 'true' : 'false');
   }
-
   // ---- focus (roving tabindex) ---------------------------------------------
   function applyRoving(emit) {
     for (const R of refs.values()) {
@@ -244,7 +219,6 @@ export function createStepGrid(container, handlers = {}) {
     cell.setAttribute('aria-selected', 'true');
     if (emit) h.onSelect(roving.tid, i);
   }
-
   function focusCell(tid, i, opts = {}) {
     const R = refs.get(tid);
     if (!R) return;
@@ -257,7 +231,6 @@ export function createStepGrid(container, handlers = {}) {
       try { cell.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch { /* jsdom */ }
     }
   }
-
   function moveFocus(dRow, dCol) {
     if (!roving || !order.length) return;
     const ti = order.indexOf(roving.tid);
@@ -274,15 +247,12 @@ export function createStepGrid(container, handlers = {}) {
     }
     focusCell(tid, i, { emit: true });
   }
-
   // ---- intent helpers -------------------------------------------------------
   function announce(text) { h.onAnnounce(text); }
-
   function emitToggle(tid, i) {
     h.onToggle(tid, i);
     announce(`${refs.get(tid).track.name} step ${i + 1} toggled`);
   }
-
   function emitParam(tid, i, param, v) {
     h.onStepParam(tid, i, param, v);
     const name = refs.get(tid).track.name;
@@ -292,20 +262,17 @@ export function createStepGrid(container, handlers = {}) {
     else if (param === 'nudge') announce(`${name} step ${i + 1} nudge ${v > 0 ? 'plus' : 'minus'} ${Math.abs(v)} ms`);
     else announce(`${name} step ${i + 1} ${param}`);
   }
-
   function modParamFromEvent(e, tid, i) {
     if (e.shiftKey) return ['vel', cycleNext(VEL_PRESETS, clamp01(stepAt(tid, i).vel))];
     if (e.altKey) return ['prob', cycleNext(PROB_PRESETS, clamp01(stepAt(tid, i).prob))];
     if (e.ctrlKey || e.metaKey) return ['ratchet', cycleNext(RAT_PRESETS, clampInt(stepAt(tid, i).ratchet || 1, 1, 8))];
     return null;
   }
-
   // ---- build -----------------------------------------------------------------
   function buildAll() {
     grid.textContent = '';
     refs.clear();
     order = [];
-
     if (!pattern) {
       grid.appendChild(playhead);
       roving = null;
@@ -313,7 +280,6 @@ export function createStepGrid(container, handlers = {}) {
       hideLine();
       return;
     }
-
     grid.setAttribute('aria-label', 'Step sequencer grid');
     project.tracks.forEach((track, tIdx) => {
       const slot = clampInt(track.colorSlot || tIdx + 1, 1, 8);
@@ -321,32 +287,26 @@ export function createStepGrid(container, handlers = {}) {
       row.className = 'gp-row';
       row.setAttribute('role', 'row');
       row.dataset.track = String(slot);
-
       const head = document.createElement('div');
       head.className = 'gp-trackhead';
       head.setAttribute('role', 'rowheader');
-
       const nameEl = document.createElement('span');
       nameEl.className = 'gp-headname';
       nameEl.textContent = String(track.name ?? '');
-
       const muteBtn = document.createElement('button');
       muteBtn.type = 'button';
       muteBtn.className = 'gp-btn gp-msbtn';
       muteBtn.textContent = 'M';
       muteBtn.setAttribute('aria-pressed', track.mixer.mute ? 'true' : 'false');
       muteBtn.setAttribute('aria-label', `Mute ${track.name}`);
-
       const soloBtn = document.createElement('button');
       soloBtn.type = 'button';
       soloBtn.className = 'gp-btn gp-msbtn';
       soloBtn.textContent = 'S';
       soloBtn.setAttribute('aria-pressed', track.mixer.solo ? 'true' : 'false');
       soloBtn.setAttribute('aria-label', `Solo ${track.name}`);
-
       head.append(nameEl, muteBtn, soloBtn);
       row.appendChild(head);
-
       const cells = new Array(cols);
       for (let i = 0; i < cols; i++) {
         const cell = document.createElement('div');
@@ -360,7 +320,6 @@ export function createStepGrid(container, handlers = {}) {
         cells[i] = cell;
         row.appendChild(cell);
       }
-
       grid.appendChild(row);
       order.push(track.id);
       refs.set(track.id, {
@@ -373,7 +332,6 @@ export function createStepGrid(container, handlers = {}) {
         cap: null,
         activeLen: clampInt(track.length || cols, 1, cols)
       });
-
       muteBtn.addEventListener('click', () => {
         h.onTrackMute(track.id);
         announce(`${track.name} mute`);
@@ -383,23 +341,18 @@ export function createStepGrid(container, handlers = {}) {
         announce(`${track.name} solo`);
       }, sig);
     });
-
     grid.appendChild(playhead);
-
     // Lengths/placeholders from the tracks as rendered.
     const map = new Map();
     for (const t of project.tracks) map.set(t.id, t.length);
     applyMap(map);
-
     cacheDirty = true;
-
     const first = order.length ? order[0] : null;
     roving = first ? { tid: first, i: 0 } : null;
     applyRoving(false);
     activeCol = -1;
     hideLine();
   }
-
   // ---- lengths & placeholders -------------------------------------------------
   // Per-track pass: end-cap after the track's last active column, dimmed
   // placeholder columns beyond it. Total columns never change here, so no
@@ -429,7 +382,6 @@ export function createStepGrid(container, handlers = {}) {
     }
     cacheDirty = true;
   }
-
   function applyLengths(map, patternLength) {
     if (!pattern) return;
     const pl = clampInt(patternLength, 1, 64);
@@ -439,7 +391,6 @@ export function createStepGrid(container, handlers = {}) {
     }
     applyMap(map);
   }
-
   // ---- playhead ---------------------------------------------------------------
   function ensureXs() {
     if (!cacheDirty && xs.length === cols && cols > 0) return xs.length > 0;
@@ -450,16 +401,13 @@ export function createStepGrid(container, handlers = {}) {
     cacheDirty = false;
     return xs.length > 0;
   }
-
   function hideLine() {
     playhead.style.display = 'none';
   }
-
   function showLine(px) {
     playhead.style.display = 'block';
     playhead.style.transform = `translateX(${px}px)`;
   }
-
   function applyActive(idxOrNull) {
     if (activeCol >= 0) {
       for (const R of refs.values()) {
@@ -476,7 +424,6 @@ export function createStepGrid(container, handlers = {}) {
     }
     activeCol = idx;
   }
-
   // ---- pointer interactions ------------------------------------------------------
   function cellFromElement(el) {
     const cell = el && el.closest ? el.closest('.gp-cell') : null;
@@ -488,7 +435,6 @@ export function createStepGrid(container, handlers = {}) {
     if (!Number.isInteger(i) || i < 0 || i >= cols) return null;
     return { cell, tid, i, ph: i >= R.activeLen };
   }
-
   function paintApply(tid, i) {
     const d = drag;
     if (!d || d.visited.has(i)) return;
@@ -496,7 +442,6 @@ export function createStepGrid(container, handlers = {}) {
     if (d.param) { emitParam(tid, i, d.param, d.value); return; }
     if (!!stepAt(tid, i).on !== d.target) emitToggle(tid, i);
   }
-
   grid.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     const hit = cellFromElement(e.target);
@@ -512,7 +457,6 @@ export function createStepGrid(container, handlers = {}) {
     try { hit.cell.setPointerCapture(e.pointerId); } catch { /* synthetic events */ }
     e.preventDefault();
   }, sig);
-
   grid.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -524,7 +468,6 @@ export function createStepGrid(container, handlers = {}) {
     }
     paintApply(hit.tid, hit.i);
   }, sig);
-
   const endPaint = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     const moved = !drag.pendingStart;        // modifier presses apply at down
@@ -539,7 +482,6 @@ export function createStepGrid(container, handlers = {}) {
     if (!drag || e.pointerId !== drag.id) return;
     drag = null;
   }, sig);
-
   grid.addEventListener('click', (e) => {
     const hit = cellFromElement(e.target);
     if (!hit || hit.ph) return;
@@ -551,7 +493,6 @@ export function createStepGrid(container, handlers = {}) {
     }
     emitToggle(hit.tid, hit.i);
   }, sig);
-
   // ---- keyboard ----------------------------------------------------------------------
   grid.addEventListener('keydown', (e) => {
     const hit = cellFromElement(e.target);
@@ -606,11 +547,9 @@ export function createStepGrid(container, handlers = {}) {
     }
     if (handled) e.preventDefault();
   }, sig);
-
   reducedMQ.addEventListener?.('change', () => {
     if (lastBeat != null) setPlayheadBeat(lastBeat);
   }, sig);
-
   // ---- public API ------------------------------------------------------------------------
   function render(projectArg, patternId) {
     project = projectArg || null;
@@ -625,17 +564,14 @@ export function createStepGrid(container, handlers = {}) {
     suppressClick = false;
     buildAll();
   }
-
   function updateTrack(trackId) {
     if (refs.has(trackId)) paintRow(trackId);
   }
-
   function updateCell(trackId, i) {
     const R = refs.get(trackId);
     if (!R || !Number.isInteger(i) || i < 0 || i >= cols) return;
     paintCell(R.cells[i], trackId, i);
   }
-
   // Continuous playhead position in beats (quarter notes). Under reduced
   // motion this drives the discrete column highlight instead of the line.
   function setPlayheadBeat(beatFloat) {
@@ -657,18 +593,15 @@ export function createStepGrid(container, handlers = {}) {
     const seg = i + 1 < xs.length ? xs[i + 1] - xs[i] : cellW + 3;
     showLine(xs[i] + seg * f);
   }
-
   // Discrete current-step marker (exact-cell outline + column wash). Also the
   // reduced-motion playhead path. Pass null to clear.
   function setActiveStep(stepIndexOrNull) {
     applyActive(stepIndexOrNull);
   }
-
   function getFocused() {
     if (!roving || !refs.has(roving.tid)) return null;
     return { trackId: roving.tid, step: roving.i };
   }
-
   function dispose() {
     ac.abort();
     if (resizeObs) resizeObs.disconnect();
@@ -682,7 +615,6 @@ export function createStepGrid(container, handlers = {}) {
     drag = null;
     xs = [];
   }
-
   return {
     render,
     updateTrack,

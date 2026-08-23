@@ -1,4 +1,4 @@
-/* Gridpulse components: transport, knobs, faders, LED toggles, mixer strip,
+﻿/* Gridpulse components: transport, knobs, faders, LED toggles, mixer strip,
    sound bay panels, status bar, toast, meter, audio-blocked banner.
 
    Control feedback transitions are <= 150ms ease-out per DESIGN.md
@@ -223,13 +223,6 @@
 
 /* ---- Mixer strip ----------------------------------------------------------- */
 
-.gp-mixer {
-  display: flex;
-  align-items: stretch;
-  gap: var(--sp-4);
-  padding: var(--sp-4);
-  overflow-x: auto;
-}
 
 .gp-strip {
   display: flex;
@@ -289,61 +282,13 @@
 
 /* ---- Status bar ------------------------------------------------------------ */
 
-.gp-status {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  padding: var(--sp-2) var(--sp-4);
-  border-top: 1px solid var(--line);
-  background-color: var(--bg-panel);
-  color: var(--fg-dim);
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
 
-.gp-status .gp-ok-dot {
-  color: var(--ok);
-}
 
-.gp-status.is-audio-blocked {
-  color: var(--accent);
-}
 
 /* ---- Audio blocked banner ---------------------------------------------------- */
 
-.gp-banner {
-  position: relative;
-  z-index: var(--z-banner);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: var(--radius-2);
-  background-color: var(--accent);
-  color: var(--accent-fg);
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
 
-.gp-banner button {
-  border: 1px solid currentColor;
-  border-radius: var(--radius-1);
-  background-color: transparent;
-  color: inherit;
-  font: inherit;
-  padding: var(--sp-1) var(--sp-2);
-  cursor: pointer;
-}
 
-.gp-banner button:hover {
-  background-color: var(--accent-fg);
-  color: var(--accent);
-}
 
 /* ---- Loading overlay (sunken, mono label; grid stays interactive if unaffected) */
 
@@ -363,7 +308,7 @@
 }
 
 /* ---- Toast -----------------------------------------------------------------
-   Slide 8px + fade over --dur-med ease-out; JS adds .is-shown to reveal. */
+   Slide 8px + fade over --dur-toast (150ms) ease-out; JS adds .is-shown to reveal. */
 
 .gp-toast {
   position: fixed;
@@ -381,8 +326,8 @@
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
-  transition: opacity var(--dur-med) var(--ease-out),
-    transform var(--dur-med) var(--ease-out);
+  transition: opacity var(--dur-toast) var(--ease-out),
+    transform var(--dur-toast) var(--ease-out);
 }
 
 .gp-toast.is-shown {
@@ -433,3 +378,4 @@
   width: 2px;
   background-color: var(--fg);
 }
+

@@ -94,7 +94,7 @@ Roles are tokens; themes override tokens only. Per-track colours are a separate 
 | --accent | #FFB347 (amber) | #B25E00 | #FFD24D |
 | --accent-fg | #141414 | #FFFFFF | #000000 |
 | --col-active | rgba(255,179,71,.10) | rgba(178,94,0,.08) | rgba(255,210,77,.14) |
-| --cell-off-border | #35342F | #CFC9BC | #4A4A4A |
+| --cell-off-border | #5C594E | #9C9484 | #767676 |
 | --focus-ring | #FFD98A | #7A3D00 | #FFE9A8 |
 | --danger | #FF6B57 | #B32300 | #FF8A78 |
 | --ok | #6FD08C | #1B7A38 | #8CF0A8 |

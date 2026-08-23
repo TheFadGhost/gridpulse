@@ -1,6 +1,6 @@
 // Minimal static file server for local development. No dependencies.
 import http from 'node:http';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,6 +30,7 @@ const server = http.createServer(async (req, res) => {
         const chunks = [];
         req.on('error', () => res.destroy());
         for await (const c of req) chunks.push(c);
+        await mkdir(path.join(ROOT, '.tmp'), { recursive: true });
         await writeFile(path.join(ROOT, '.tmp', 'devstore.bin'), Buffer.concat(chunks));
         if (!res.writableEnded) {
           res.writeHead(200, { 'Cache-Control': 'no-store' });

@@ -29,7 +29,7 @@ export function validateProject(input) {
     if (!Number.isInteger(p.metronome.division) || p.metronome.division < 1 || p.metronome.division > 16) err('metronome.division: 1..16');
     if (!inRange(p.metronome.gain, [0, 1])) err('metronome.gain: 0..1');
   }
-  if (!Number.isInteger(p.seed)) err('seed: integer required');
+  if (!Number.isInteger(p.seed) || p.seed < 0 || p.seed > 0xFFFFFFFF) err('seed: uint32 required');
 
   const ids = new Set();
   if (!Array.isArray(p.tracks) || p.tracks.length === 0) err('tracks: non-empty array required');
@@ -70,10 +70,42 @@ function validateTrack(t, ids) {
     const pieces = ['kick', 'snare', 'hatClosed', 'hatOpen', 'clap', 'tom'];
     if (!isObj(t.params) || !pieces.includes(t.params.piece)) err(`${t.id}.params.piece`);
   }
+  if (t.type === 'synth') validateSynthParams(t.id, t.params);
+  if (t.type === 'sampler') validateSamplerParams(t.id, t.params);
 }
 
-function validateFX(id, fx) {
-  const spec = {
+const SYNTH_RANGES = {
+  detune: [-50, 50], glide: [0, 0.5], attack: [0, 2], decay: [0, 2],
+  sustain: [0, 1], release: [0, 4], cutoff: [30, 18000], resonance: [0.0001, 24],
+  envMod: [0, 10], fEnvDecay: [0, 4]
+};
+
+function validateSynthParams(id, params) {
+  if (!isObj(params)) { err(`${id}.params: object required`); return; }
+  if (!['sine', 'triangle', 'sawtooth', 'square', 'supersaw'].includes(params.wave)) {
+    err(`${id}.params.wave`);
+  }
+  for (const [k, r] of Object.entries(SYNTH_RANGES)) {
+    if (params[k] !== undefined && !inRange(params[k], r)) err(`${id}.params.${k}: out of range`);
+  }
+}
+
+const SAMPLER_RANGES = { gain: [0, 4], tune: [-48, 48], start: [0, 1], end: [0, 1] };
+
+function validateSamplerParams(id, params) {
+  if (!isObj(params)) { err(`${id}.params: object required`); return; }
+  if (typeof params.reverse !== 'undefined' && typeof params.reverse !== 'boolean') {
+    err(`${id}.params.reverse: boolean`);
+  }
+  for (const [k, r] of Object.entries(SAMPLER_RANGES)) {
+    if (params[k] !== undefined && !inRange(params[k], r)) err(`${id}.params.${k}: out of range`);
+  }
+  if ([params.start, params.end].every(num) && params.start > params.end) {
+    err(`${id}.params.start/end: start must be <= end`);
+  }
+}
+
+function validateFX(id, fx) {  const spec = {
     drive: o => inRange(o.amount, [0, 1]),
     filter: o => ['lowpass', 'highpass', 'bandpass'].includes(o.type) && inRange(o.cutoff, [30, 18000]) && inRange(o.q, [0.0001, 24]),
     comp: o => inRange(o.threshold, [-60, 0]) && inRange(o.ratio, [1, 20]) && inRange(o.attack, [0, 1]) && inRange(o.release, [0.01, 2]),

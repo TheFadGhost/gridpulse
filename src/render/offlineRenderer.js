@@ -2,6 +2,7 @@ import { validateProject } from '../core/schema.js';
 import { STEP_BEATS } from '../core/musictime.js';
 import { eventPrng } from '../core/eventrng.js';
 import { Scheduler } from '../audio/scheduler.js';
+import { buildSchedulerView } from '../audio/view.js';
 import { createSharedReturns, createTrackFX } from '../audio/fx.js';
 import { createDrumVoice } from '../audio/voices/kit.js';
 import { createSynthVoice } from '../audio/voices/synthvoice.js';
@@ -39,19 +40,7 @@ function isKickTrack(t) {
 }
 
 function buildView(project) {
-  return {
-    tracks: project.tracks.map((t) => ({ id: t.id, type: t.type, length: t.length })),
-    patterns: Object.fromEntries(project.patterns.map((p) => [p.id, p])),
-    patternId: activePatternId(project),
-    chain: project.song.chain,
-    songMode: project.song.mode === 'song',
-    seed: project.seed,
-    swing: project.swing,
-    bpm: project.bpm,
-    metronome: project.metronome,
-    stepsPerBeat: 16 / project.timeSig.den,
-    beatsPerBar: (project.timeSig.num * 4) / project.timeSig.den
-  };
+  return buildSchedulerView(project, activePatternId(project));
 }
 
 function applyMasterState(returns, project) {
@@ -73,6 +62,9 @@ function fxActive(t) {
 }
 
 function createLiteChannel(ctx, returns) {
+  // Minimal identity channel for tracks with all FX disabled: fewer nodes in
+  // the offline graph, identical audio, and it avoids a Chromium headless
+  // OfflineAudioContext stall triggered by the full TrackFX composite.
   const input = ctx.createGain();
   const panner = ctx.createStereoPanner();
   const fader = ctx.createGain();
@@ -175,7 +167,6 @@ function runScheduler(project, duration, onEvent) {
   });
   sched.start(START_AT);
   sched.tick();
-  return sched;
 }
 
 export async function renderProjectToBuffer(project, { sampleRate = 44100 } = {}) {

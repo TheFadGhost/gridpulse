@@ -1,5 +1,7 @@
 import { validateProject } from '../core/schema.js';
 import { encodeWav } from '../render/wavenc.js';
+import { downloadBlob } from '../ui/download.js';
+import { bytesToBase64 } from '../core/b64.js';
 
 export const SLOT_PREFIX = 'gridpulse.project.';
 
@@ -76,14 +78,7 @@ export function deleteLocalSlot(name) {
 export function downloadProjectJSON(project) {
   const fname = `gridpulse-${sanitizeSlotName((project && project.name) || '')}.json`;
   const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fname;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  downloadBlob(blob, fname);
 }
 
 export async function readProjectFile(file) {
@@ -98,14 +93,6 @@ export async function readProjectFile(file) {
   return v.project;
 }
 
-function bytesToBase64(input) {
-  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += B64_CHUNK) {
-    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + B64_CHUNK));
-  }
-  return btoa(bin);
-}
 
 export async function embedSamples(project, buffersMap) {
   const clone = JSON.parse(JSON.stringify(project));

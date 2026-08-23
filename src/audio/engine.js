@@ -99,7 +99,7 @@ export function createEngine() {
       case 'running': return 'running';
       case 'suspended': return 'suspended';
       case 'closed': return 'closed';
-      default: return 'created';
+      default: return 'suspended';
     }
   }
 

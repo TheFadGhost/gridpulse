@@ -1,4 +1,4 @@
-/* Gridpulse design tokens.
+﻿/* Gridpulse design tokens.
    Roles and palette verbatim from DESIGN.md. Themes override tokens only;
    scales/z-index are theme-invariant and defined once below. */
 
@@ -15,7 +15,7 @@
   --accent: #FFB347;
   --accent-fg: #141414;
   --col-active: rgba(255, 179, 71, 0.10);
-  --cell-off-border: #35342F;
+  --cell-off-border: #5C594E;
   --focus-ring: #FFD98A;
   --danger: #FF6B57;
   --ok: #6FD08C;
@@ -42,7 +42,7 @@
   --accent: #B25E00;
   --accent-fg: #FFFFFF;
   --col-active: rgba(178, 94, 0, 0.08);
-  --cell-off-border: #CFC9BC;
+  --cell-off-border: #9C9484;
   --focus-ring: #7A3D00;
   --danger: #B32300;
   --ok: #1B7A38;
@@ -69,7 +69,7 @@
   --accent: #FFD24D;
   --accent-fg: #000000;
   --col-active: rgba(255, 210, 77, 0.14);
-  --cell-off-border: #4A4A4A;
+  --cell-off-border: #767676;
   --focus-ring: #FFE9A8;
   --danger: #FF8A78;
   --ok: #8CF0A8;
@@ -108,6 +108,7 @@
   /* Motion */
   --dur-fast: 120ms;
   --dur-med: 180ms;
+--dur-toast: 150ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Grid geometry */
@@ -125,3 +126,5 @@
   --z-banner: 45;
   --z-toast: 50;
 }
+
+

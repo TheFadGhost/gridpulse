@@ -158,6 +158,13 @@
   );
 }
 
+.gp-cell[data-nudge-dir] {
+  background-image: var(--nudge-layer);
+  background-repeat: no-repeat;
+  background-size: 8px 8px;
+  background-position: left 2px top 2px;
+}
+
 /* Ratcheted: right-edge ticks, one 8x2px tick per extra repeat, max 7.
    Class N (.r2..r8) = total repeats; ticks shown = N-1, evenly distributed.
    Layer order: nudge triangle above ticks; hatch ::before paints above both;

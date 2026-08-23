@@ -203,6 +203,16 @@ export function createTransport(container, handlers) {
     playBtn.setAttribute('aria-label', on ? 'Pause' : 'Play');
   }
 
+  function setBlocked(blocked) {
+    const b = !!blocked;
+    for (const el of [playBtn, stopBtn]) {
+      el.disabled = b;
+      el.setAttribute('aria-disabled', b ? 'true' : 'false');
+      el.title = b ? 'Start audio first (click anywhere)' : el.getAttribute('data-title') || '';
+      if (!b) el.removeAttribute('aria-disabled');
+    }
+  }
+
   function setBpm(bpm) {
     const v = clampNum(bpm, BPM_MIN, BPM_MAX, 120);
     bpmInput.value = v.toFixed(1);
@@ -240,6 +250,6 @@ export function createTransport(container, handlers) {
   }
 
   return {
-    setPlaying, setBpm, setSwing, setTimeSig, setMetronome, setTapPulse, dispose
+    setPlaying, setBlocked, setBpm, setSwing, setTimeSig, setMetronome, setTapPulse, dispose
   };
 }

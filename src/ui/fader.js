@@ -1,3 +1,4 @@
+import { clamp } from '../core/util.js';
 // Vertical mixer fader (96px groove, components.css) + optional post-fader
 // meter. JS drives:
 //   --fader  0..1  on .gp-fader   (thumb bottom: calc(var(--fader) * 86px))
@@ -7,16 +8,12 @@
 // then drags. The component never touches project data.
 const FADER_MAX = 1.2;
 const FADER_STEP = 0.01;
-
 export function createFader({ label, value = 0.85, meter = true } = {}) {
   let val = clamp(Number.isFinite(value) ? value : 0);
-
   const ac = new AbortController();
   const sig = { signal: ac.signal };
-
   const wrap = document.createElement('div');
   wrap.className = 'gp-param';
-
   const fader = document.createElement('div');
   fader.className = 'gp-fader';
   fader.setAttribute('role', 'slider');
@@ -25,14 +22,12 @@ export function createFader({ label, value = 0.85, meter = true } = {}) {
   fader.setAttribute('aria-valuemin', '0');
   fader.setAttribute('aria-valuemax', String(FADER_MAX));
   fader.tabIndex = 0;
-
   const track = document.createElement('div');
   track.className = 'gp-fader-track';
   const thumb = document.createElement('div');
   thumb.className = 'gp-fader-thumb';
   fader.append(track, thumb);
   wrap.appendChild(fader);
-
   let meterEl = null;
   if (meter) {
     meterEl = document.createElement('div');
@@ -44,34 +39,28 @@ export function createFader({ label, value = 0.85, meter = true } = {}) {
     meterEl.append(rms, peak);
     wrap.appendChild(meterEl);
   }
-
   const labelEl = document.createElement('span');
   labelEl.className = 'gp-label';
   labelEl.textContent = String(label ?? '');
   wrap.appendChild(labelEl);
-
   let cb = null;
   let dragId = null;
-
   function clamp(v) {
     if (!Number.isFinite(v)) return 0;
     return Math.min(FADER_MAX, Math.max(0, v));
   }
-
   function valueFromY(clientY) {
     const r = fader.getBoundingClientRect();
     if (r.height <= 0) return val;
     const t = 1 - (clientY - r.top) / r.height;
     return clamp(Math.min(1, Math.max(0, t)) * FADER_MAX);
   }
-
   function paint() {
     const t = val / FADER_MAX;
     fader.style.setProperty('--fader', t.toFixed(4));
     fader.setAttribute('aria-valuenow', val.toFixed(2));
     fader.setAttribute('aria-valuetext', `${Math.round(t * 100)} percent`);
   }
-
   function commit(v) {
     const next = clamp(v);
     if (next === val) { paint(); return; }
@@ -79,7 +68,6 @@ export function createFader({ label, value = 0.85, meter = true } = {}) {
     paint();
     if (cb) cb(val);
   }
-
   fader.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     dragId = e.pointerId;
@@ -87,12 +75,10 @@ export function createFader({ label, value = 0.85, meter = true } = {}) {
     e.preventDefault();
     commit(valueFromY(e.clientY));
   }, sig);
-
   fader.addEventListener('pointermove', (e) => {
     if (dragId !== e.pointerId) return;
     commit(valueFromY(e.clientY));
   }, sig);
-
   const endDrag = (e) => {
     if (dragId !== e.pointerId) return;
     try { fader.releasePointerCapture(e.pointerId); } catch { /* already up */ }
@@ -100,7 +86,6 @@ export function createFader({ label, value = 0.85, meter = true } = {}) {
   };
   fader.addEventListener('pointerup', endDrag, sig);
   fader.addEventListener('pointercancel', endDrag, sig);
-
   fader.addEventListener('keydown', (e) => {
     const fine = e.shiftKey ? 0.1 : 1;
     let next = null;
@@ -116,9 +101,7 @@ export function createFader({ label, value = 0.85, meter = true } = {}) {
     e.preventDefault();
     commit(next);
   }, sig);
-
   paint();
-
   return {
     el: wrap,
     set(v) { val = clamp(Number(v)); paint(); },

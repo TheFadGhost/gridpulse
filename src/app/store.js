@@ -3,6 +3,7 @@ import {
   applyStepRange, makeStep, patternSteps, serializeStepRange, uid
 } from '../core/model.js';
 import { validateProject } from '../core/schema.js';
+import { quantizeSteps } from '../core/scales.js';
 
 const STEP_BOUNDS = { vel: [0, 1], prob: [0, 1], ratchet: [1, 8], nudge: [-40, 40] };
 const CYCLES = {
@@ -409,6 +410,15 @@ export class AppStore extends EventTarget {
     });
   }
 
+  quantizeTrack(trackId, key, scaleName) {
+    const arr = this._steps(trackId);
+    let changed = 0;
+    this._mutate('quantizeTrack', () => {
+      changed = quantizeSteps(arr, key, scaleName);
+    });
+    return changed;
+  }
+
   _doUndo() {
     const snap = this._undoStack.undo();
     if (snap == null) return false;
@@ -422,8 +432,6 @@ export class AppStore extends EventTarget {
     this._restore(snap, 'redo');
     return true;
   }
-
-  undo() { return this._doUndo(); }
 
   redo() { return this._doRedo(); }
 
