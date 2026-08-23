@@ -79,3 +79,17 @@ Extracted numbers: render length identical across processes (617444 bytes); 21 o
 ## Findings
 
 None.
+
+## Re-audit after audit-fix batch (same day)
+
+Environment unchanged. Full regression gate re-run after the code+design audit fixes (shared view builder, quantize-through-store, schema hardening, returns dispose, nudge-layer rule, off-border contrast, focus-visible, transport blocked state, toast 150 ms):
+
+- Node suite: 90 pass / 0 fail.
+- `?only=scheduler` → ALL PASS.
+- `?only=alignment` → ALL PASS (numbers within the same sub-0.1 ms band).
+- `?only=rendersave` → ALL PASS.
+- `?only=rendercompare` → ALL PASS (`diffs=18/308700 maxDelta=1LSB`).
+
+Design audit follow-ups (AUDIT-DESIGN.md): F1 nudge-layer standalone rule added and verified composable; F2 `--cell-off-border` raised to ≥3:1 in all three themes (tokens + DESIGN.md table updated); F3 transport `setBlocked()` wired to audio state; F5 cell focus overrides scoped to `:focus:not(:focus-visible)`; F6 blocked-state text uses `--fg`; F7 toast 150 ms token; F8 mojibake replaced; F9 type drift normalized; F4 loading overlay now used by import/render flows. Remaining INFO items (F10 per-row beat rules) documented as intentional tradeoff.
+
+Status: zero open findings.

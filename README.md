@@ -2,6 +2,8 @@
 
 A step sequencer that runs entirely in the browser on the Web Audio API, for musicians and hobbyists who want to program drum patterns and melodic lines without installing anything.
 
+![Gridpulse step sequencer](docs/screenshot.png)
+
 ## Run
 
 ```sh
