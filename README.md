@@ -1,5 +1,12 @@
 # Gridpulse
 
+> **built with ox alpha**
+>
+> most of this was written in august 2026 during the free preview window of
+> [ox alpha](https://openrouter.ai/stealth/ox-alpha), an anonymous stealth model
+> that turned up on openrouter for about a week. i set the direction and reviewed
+> what came back. the tests are real and they pass — clone it and run them.
+
 A step sequencer that runs entirely in the browser on the Web Audio API, for musicians and hobbyists who want to program drum patterns and melodic lines without installing anything.
 
 ![Gridpulse step sequencer](docs/screenshot.png)
